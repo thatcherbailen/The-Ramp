@@ -12,6 +12,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const s = getSettings();
     setDark(s.darkMode);
+    const openSettings = () => setSettingsOpen(true);
+    window.addEventListener('scc:open-settings', openSettings);
+    return () => window.removeEventListener('scc:open-settings', openSettings);
   }, []);
 
   return (

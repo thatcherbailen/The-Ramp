@@ -20,7 +20,7 @@ const ALL_SECTIONS = [
   { group: 'Pipeline', items: [
     { href: '/calls', label: 'Call Log' },
     { href: '/jobs', label: 'Job Tracker' },
-    { href: '/networking', label: 'Network' },
+    { href: '/networking', label: 'Networking' },
   ]},
   { group: 'Prep', items: [
     { href: '/stories', label: 'Story Bank' },

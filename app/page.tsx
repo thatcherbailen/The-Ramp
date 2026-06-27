@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { getSettings, getCalls, getJobs, getCustomTasks, getTaskDone, getTaskDeletes, getTaskEdits, getNews } from '@/lib/store';
-import { SEED_TASKS } from '@/lib/seedData';
+import { useRouter } from 'next/navigation';
+import { getSettings, getCalls, getJobs, getCustomTasks, getTaskDone, getTaskDeletes, getTaskEdits, getStories, getContacts, getEvents } from '@/lib/store';
+import { SEED_TASKS, SEED_STORIES } from '@/lib/seedData';
 import LogCallModal from '@/components/LogCallModal';
 
 function greeting() {
@@ -12,56 +12,88 @@ function greeting() {
   return 'Good evening';
 }
 
+const TONE: Record<string, { bg: string; ink: string; micro: string; border: string }> = {
+  white: { bg: '#FFFFFF', ink: '#1A1613', micro: '#9C958B', border: '1px solid #ECE8E2' },
+  grey:  { bg: '#EFECE7', ink: '#1A1613', micro: '#9C958B', border: '1px solid #EFECE7' },
+  tint:  { bg: '#FBE7E0', ink: '#1A1613', micro: '#C26A4E', border: '1px solid #FBE7E0' },
+  coral: { bg: '#F5552E', ink: '#FFFFFF', micro: 'rgba(255,255,255,.82)', border: '1px solid #F5552E' },
+};
+
+type Card = {
+  type: 'stat' | 'module';
+  tone: keyof typeof TONE;
+  big?: string | number;
+  label?: string;
+  name: string;
+  href: string;
+  minH: number;
+};
+
 export default function TodayPage() {
+  const router = useRouter();
   const [logOpen, setLogOpen] = useState(false);
-  const [data, setData] = useState({ userName: 'Bailen', cards: [] as unknown[] });
+  const [userName, setUserName] = useState('Bailen');
+  const [cards, setCards] = useState<Card[]>([]);
 
   useEffect(() => {
     const settings = getSettings();
+    setUserName(settings.userName);
+
     const calls = getCalls();
     const jobs = getJobs();
     const today = new Date().toISOString().slice(0, 10);
-    const todayCalls = calls.filter(c => c.date === today);
-    const appts = calls.filter(c => c.appointmentBooked).length;
+    const weekAgo = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+
+    const callsThisWeek = calls.filter(c => c.date >= weekAgo && c.date <= today).length;
+    const apptsBooked = calls.filter(c => c.appointmentBooked).length;
+    const apptRate = calls.length ? Math.round((apptsBooked / calls.length) * 100) : 0;
+    const activeJobs = jobs.filter(j => !['Rejected', 'Closed'].includes(j.status)).length;
+    const upcomingInterviews = jobs.filter(j => ['Phone Screen', 'Interview', 'Final Round'].includes(j.status)).length;
 
     const done = getTaskDone();
     const deletes = getTaskDeletes();
     const edits = getTaskEdits();
-    const seed = SEED_TASKS.filter(t => !deletes.has(t.id)).map(t => ({ ...t, ...(edits[t.id] || {}) }));
-    const allTasks = [...seed, ...getCustomTasks()];
-    const tasksDone = allTasks.filter(t => done[t.id]).length;
-    const news = getNews();
-    const topNews = news[0];
+    const seedTasks = SEED_TASKS.filter(t => !deletes.has(t.id)).map(t => ({ ...t, ...(edits[t.id] || {}) }));
+    const allTasks = [...seedTasks, ...getCustomTasks()];
+    const openTasks = allTasks.filter(t => !done[t.id]).length;
 
-    setData({
-      userName: settings.userName,
-      cards: [
-        { label: "Today's calls", href: '/calls', big: todayCalls.length, sub: `of ${settings.dailyCallGoal} goal`, type: 'stat', accent: true },
-        { label: 'Appointments booked', href: '/calls', big: appts, sub: 'total booked', type: 'stat' },
-        { label: 'Tasks completed', href: '/tasks', big: tasksDone, sub: `of ${allTasks.length} total`, type: 'stat' },
-        { label: 'Active roles', href: '/jobs', big: jobs.filter(j => !['Rejected','Closed'].includes(j.status)).length, sub: 'in pipeline', type: 'stat' },
-        { label: 'Network', href: '/networking', name: 'Network', type: 'module' },
-        { label: 'Interview Prep', href: '/prep', name: 'Interview Prep', type: 'module' },
-        { label: 'Story Bank', href: '/stories', name: 'Story Bank', type: 'module' },
-        { label: 'Objection Drill', href: '/objections', name: 'Objection Drill', type: 'module' },
-        { label: 'Reading List', href: '/reading', name: 'Reading List', type: 'module' },
-        topNews
-          ? { label: 'Tech News', href: '/news', name: topNews.title, type: 'news' }
-          : { label: 'Tech News', href: '/news', name: 'Tech News', type: 'module' },
-      ],
-    });
+    const storiesCount = SEED_STORIES.length + getStories().length;
+
+    const events = getEvents().filter(e => e.date === today).length;
+    const jobEventsToday = jobs.filter(j => j.interviewDate === today).length;
+    const contactEventsToday = getContacts().filter(c => c.followupDate === today).length;
+    const eventsToday = events + jobEventsToday + contactEventsToday;
+
+    setCards([
+      { type: 'stat',   tone: 'coral', big: callsThisWeek,        name: 'Calls this week',   href: '/calls',      minH: 188 },
+      { type: 'module', tone: 'grey',  label: 'Cold outreach',    name: 'Call Log',          href: '/calls',      minH: 118 },
+      { type: 'module', tone: 'white', label: `${activeJobs} active`, name: 'Job Tracker',   href: '/jobs',       minH: 150 },
+      { type: 'stat',   tone: 'tint',  big: `${apptRate}%`,       name: 'Appointment rate',  href: '/calls',      minH: 128 },
+      { type: 'module', tone: 'white', label: `Today · ${eventsToday} event${eventsToday === 1 ? '' : 's'}`, name: 'Calendar', href: '/calendar', minH: 168 },
+      { type: 'module', tone: 'tint',  label: `${openTasks} open`, name: 'Task Tracker',     href: '/tasks',      minH: 118 },
+      { type: 'stat',   tone: 'grey',  big: apptsBooked,          name: 'Appts booked',      href: '/calls',      minH: 140 },
+      { type: 'module', tone: 'white', label: `${upcomingInterviews} upcoming`, name: 'Interview Prep', href: '/prep', minH: 150 },
+      { type: 'module', tone: 'coral', label: 'Practice',         name: 'Objection Drill',   href: '/objections', minH: 118 },
+      { type: 'module', tone: 'grey',  label: `${storiesCount} stories`, name: 'Story Bank', href: '/stories',    minH: 128 },
+      { type: 'module', tone: 'tint',  label: 'Reading List',     name: 'Reading List',      href: '/reading',    minH: 150 },
+    ]);
   }, [logOpen]);
-
-  const { userName, cards } = data;
 
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
         <div>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#9C958B' }}>{greeting()}, {userName}</div>
-          <div className="page-title" style={{ marginTop: 4 }}>Today</div>
+          <div className="today-title">Today</div>
         </div>
-        <div style={{ marginTop: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            onClick={() => window.dispatchEvent(new Event('scc:open-settings'))}
+            title="Settings"
+            style={{ width: 46, height: 46, borderRadius: 999, border: '1px solid #E4DFD8', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1A1613', flexShrink: 0 }}
+          >
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3.2" stroke="currentColor" strokeWidth="1.6"/><path d="M12 2.5v2.2M12 19.3v2.2M21.5 12h-2.2M4.7 12H2.5M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6M18.7 18.7l-1.6-1.6M6.9 6.9L5.3 5.3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+          </button>
           <button
             onClick={() => setLogOpen(true)}
             className="coral-btn"
@@ -72,58 +104,33 @@ export default function TodayPage() {
         </div>
       </div>
 
-      <div style={{ columns: 'auto 260px', columnGap: 14, marginTop: 22 }}>
-        {(cards as Array<{label:string;href:string;big?:number;sub?:string;name?:string;type:string;accent?:boolean}>).map((card, i) => (
-          <Link
-            key={i}
-            href={card.href}
-            style={{
-              display: 'block',
-              breakInside: 'avoid',
-              background: card.accent ? '#1A1613' : '#fff',
-              border: `1px solid ${card.accent ? '#1A1613' : '#ECE8E2'}`,
-              borderRadius: 18,
-              padding: '20px 22px',
-              marginBottom: 14,
-              textDecoration: 'none',
-              color: card.accent ? '#fff' : '#1A1613',
-              transition: 'box-shadow .15s, transform .15s',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: card.accent ? 'rgba(255,255,255,.6)' : '#B5AEA4' }}>
-                {card.label}
-              </span>
-              <span style={{ color: card.accent ? 'rgba(255,255,255,.5)' : '#C5BFB6' }}>
-                <ArrowIcon />
-              </span>
+      <div className="scc-mason">
+        {cards.map((card, i) => {
+          const t = TONE[card.tone];
+          return (
+            <div
+              key={i}
+              onClick={() => router.push(card.href)}
+              className="scc-mason-card"
+              style={{ background: t.bg, color: t.ink, border: t.border, padding: 18, minHeight: card.minH }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <span style={{ color: t.micro, fontSize: 11, fontWeight: 500, letterSpacing: '.01em', maxWidth: '70%' }}>{card.label}</span>
+                <span style={{ color: t.ink, display: 'flex', opacity: 0.85 }}>
+                  <ArrowIcon />
+                </span>
+              </div>
+              {card.type === 'stat' ? (
+                <div style={{ marginTop: 26 }}>
+                  <div className="scc-num scc-mason-big">{card.big}</div>
+                  <div style={{ color: t.micro, fontSize: 12, fontWeight: 500, marginTop: 6 }}>{card.name}</div>
+                </div>
+              ) : (
+                <div className="scc-mason-name">{card.name}</div>
+              )}
             </div>
-
-            {card.type === 'stat' && (
-              <div style={{ marginTop: 26 }}>
-                <div className="scc-num" style={{ fontWeight: 300, fontSize: 58, lineHeight: .85, color: card.accent ? '#F5552E' : '#1A1613' }}>
-                  {card.big}
-                </div>
-                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: card.accent ? 'rgba(255,255,255,.5)' : '#B5AEA4', marginTop: 8 }}>
-                  {card.sub}
-                </div>
-              </div>
-            )}
-
-            {card.type === 'module' && (
-              <div style={{ fontWeight: 800, fontSize: 29, lineHeight: 1.02, letterSpacing: '-.03em', marginTop: 36 }}>
-                {card.name}
-              </div>
-            )}
-
-            {card.type === 'news' && (
-              <div style={{ marginTop: 14 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: '#F5552E', marginBottom: 6 }}>Latest story</div>
-                <div style={{ fontWeight: 700, fontSize: 15, lineHeight: 1.4 }}>{card.name}</div>
-              </div>
-            )}
-          </Link>
-        ))}
+          );
+        })}
       </div>
 
       {logOpen && <LogCallModal onClose={() => setLogOpen(false)} />}

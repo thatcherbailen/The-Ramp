@@ -6,23 +6,23 @@ import { getSettings } from '@/lib/store';
 
 const NAV = [
   { group: 'MAIN', items: [
-    { href: '/', label: 'Today', icon: '◉' },
-    { href: '/calendar', label: 'Calendar', icon: '⧖' },
-    { href: '/tasks', label: 'Task Tracker', icon: '☑' },
+    { href: '/', label: 'Today' },
+    { href: '/calendar', label: 'Calendar' },
+    { href: '/tasks', label: 'Task Tracker' },
   ]},
   { group: 'PIPELINE', items: [
-    { href: '/calls', label: 'Call Log', icon: '☏' },
-    { href: '/jobs', label: 'Job Tracker', icon: '◈' },
-    { href: '/networking', label: 'Network', icon: '⬡' },
+    { href: '/calls', label: 'Call Log' },
+    { href: '/jobs', label: 'Job Tracker' },
+    { href: '/networking', label: 'Networking' },
   ]},
   { group: 'PREP', items: [
-    { href: '/stories', label: 'Story Bank', icon: '★' },
-    { href: '/prep', label: 'Interview Prep', icon: '◻' },
-    { href: '/objections', label: 'Objection Drill', icon: '⊕' },
+    { href: '/stories', label: 'Story Bank' },
+    { href: '/prep', label: 'Interview Prep' },
+    { href: '/objections', label: 'Objection Drill' },
   ]},
   { group: 'LEARN', items: [
-    { href: '/news', label: 'Tech News', icon: '◈' },
-    { href: '/reading', label: 'Reading List', icon: '▣' },
+    { href: '/news', label: 'Tech News' },
+    { href: '/reading', label: 'Reading List' },
   ]},
 ];
 
@@ -66,19 +66,17 @@ export default function Sidebar({ onSettings }: { onSettings: () => void }) {
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 9,
-                  padding: '9px 12px',
-                  borderRadius: 11,
+                  padding: '11px 13px',
+                  borderRadius: 12,
                   textDecoration: 'none',
                   fontSize: 14,
                   fontWeight: active ? 700 : 500,
-                  color: active ? '#fff' : '#3F3A34',
+                  color: active ? '#FFFFFF' : '#6B655E',
                   background: active ? '#1A1613' : 'transparent',
                   transition: 'background .12s, color .12s',
                   marginBottom: 1,
                 }}
               >
-                <span style={{ fontSize: 13, opacity: active ? 1 : 0.5 }}>{item.icon}</span>
                 {item.label}
               </Link>
             );
