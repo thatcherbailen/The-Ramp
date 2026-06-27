@@ -35,16 +35,25 @@ export default function CallsPage() {
   const avgConf = calls.length ? (calls.reduce((s,c) => s+c.confidence,0)/calls.length).toFixed(1) : '—';
   const stories = calls.filter(c => c.isInterviewStory);
 
+  const dollars = (v?: string) => { const n = parseFloat((v || '').replace(/[^0-9.]/g, '')); return isNaN(n) ? 0 : n; };
+  const closedCalls = calls.filter(c => dollars(c.jobValue) > 0);
+  const revenue = closedCalls.reduce((s,c) => s + dollars(c.jobValue), 0);
+  const voicemails = calls.filter(c => c.outcome === 'Voicemail').length;
+  const objectionsHandled = calls.filter(c => c.objection !== 'None').length;
+
   const objBreak = calls.reduce((m,c) => { m[c.objection] = (m[c.objection]||0)+1; return m; }, {} as Record<string,number>);
   const outBreak = calls.reduce((m,c) => { m[c.outcome] = (m[c.outcome]||0)+1; return m; }, {} as Record<string,number>);
 
   const statsArr = [
     { label:'Total calls', value: calls.length, coral:false },
-    { label:'Appts booked', value: apptCount, coral:true },
-    { label:'Appt rate', value: calls.length ? `${Math.round(apptCount/calls.length*100)}%` : '0%', coral:false },
+    { label:'Appts booked', value: apptCount, coral:false },
+    { label:'Appt rate', value: calls.length ? `${Math.round(apptCount/calls.length*100)}%` : '0%', coral:true },
+    { label:'Sales closed', value: closedCalls.length, coral:false },
+    { label:'Revenue', value: `$${revenue.toLocaleString('en-AU')}`, coral:false },
     { label:'Avg confidence', value: avgConf, coral:false },
     { label:'Interview stories', value: stories.length, coral:false },
-    { label:'Today\'s calls', value: calls.filter(c => c.date === new Date().toISOString().slice(0,10)).length, coral:false },
+    { label:'Voicemails', value: voicemails, coral:false },
+    { label:'Objections handled', value: objectionsHandled, coral:false },
   ];
 
   return (
@@ -79,8 +88,9 @@ export default function CallsPage() {
         calls.length === 0 ? (
           <EmptyState title="No calls logged yet" desc='Hit "Log a call" after every dial — the dashboard fills in automatically.' onAdd={() => setLogOpen(true)} btnLabel="+ Log a call" />
         ) : (
-          <div className="card" style={{ overflow:'hidden' }}>
-            <div className="table-head" style={{ display:'grid', gridTemplateColumns:'34px 1.6fr 150px 58px 116px 60px', gap:14, padding:'13px 22px', background:'#FBF9F6', fontSize:10, fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:'#9C958B' }}>
+          <>
+          <div className="card hidden md:block" style={{ overflow:'hidden' }}>
+            <div style={{ display:'grid', gridTemplateColumns:'34px 1.6fr 150px 58px 116px 60px', gap:14, padding:'13px 22px', background:'#FBF9F6', fontSize:10, fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:'#9C958B' }}>
               <div>#</div><div>Lead · source</div><div>Outcome</div><div>Conf</div><div>Appointment</div><div></div>
             </div>
             {calls.map((c,i) => (
@@ -94,7 +104,7 @@ export default function CallsPage() {
                   <div style={pillStyle(c.outcome) as React.CSSProperties}>{c.outcome}</div>
                   <div style={{ fontSize:14, fontWeight:700, color: c.confidence >= 7 ? '#3F8F5B' : c.confidence >= 4 ? '#9C958B' : '#C24A24' }}>{c.confidence}/10</div>
                   <div style={{ fontSize:13, color: c.appointmentBooked ? '#3F8F5B' : '#B5AEA4', fontWeight: c.appointmentBooked ? 700 : 500 }}>
-                    {c.appointmentBooked ? `✓ ${c.appointmentDate || 'Booked'}` : '—'}
+                    {c.appointmentBooked ? `✓ ${c.appointmentDate || 'Booked'}${c.jobValue ? ` · ${c.jobValue}` : ''}` : '—'}
                   </div>
                   <div style={{ display:'flex', justifyContent:'flex-end' }}>
                     <DotMenu actions={[
@@ -128,6 +138,20 @@ export default function CallsPage() {
               </div>
             ))}
           </div>
+
+          {/* Mobile clean rows */}
+          <div className="md:hidden">
+            {calls.map(c => (
+              <div key={c.id} onClick={() => setEditCall(c)} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, padding:'15px 0', borderTop:'1px solid #F1EDE7', cursor:'pointer' }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontWeight:700, fontSize:16, letterSpacing:'-.01em' }}>{c.lead}</div>
+                  <div style={{ fontSize:12, fontWeight:500, color:'#9C958B', marginTop:2 }}>{c.source} · {c.date}</div>
+                </div>
+                <div style={{ ...pillStyle(c.outcome) as React.CSSProperties, flex:'none', textAlign:'center' }}>{c.outcome}</div>
+              </div>
+            ))}
+          </div>
+          </>
         )
       )}
 

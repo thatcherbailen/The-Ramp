@@ -32,6 +32,7 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
       confidence: f.confidence || 5,
       appointmentBooked: !!f.appointmentBooked,
       appointmentDate: f.appointmentDate,
+      jobValue: f.jobValue,
       objection: f.objection || 'None',
       tone: f.tone || 'Neutral',
       response: f.response || '',
@@ -95,6 +96,10 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
               style={{ flex: 1 }} />
           )}
         </div>
+
+        {f.appointmentBooked && (
+          <div><L>Job value (if it closes)</L><Inp field="jobValue" placeholder="$14,000" /></div>
+        )}
 
         <div>
           <L>Response / what you said</L>

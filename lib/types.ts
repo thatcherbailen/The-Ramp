@@ -40,6 +40,7 @@ export interface Call {
   confidence: number;
   appointmentBooked: boolean;
   appointmentDate?: string;
+  jobValue?: string;
   objection: string;
   tone: string;
   response: string;

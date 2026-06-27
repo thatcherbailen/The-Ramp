@@ -16,6 +16,11 @@ const PHASE_COLORS: Record<string, {bg:string,color:string}> = {
 const PRI_COLORS: Record<Priority, string> = {
   'High': '#C24A24', 'Medium': '#9C958B', 'Low': '#B5AEA4',
 };
+const PHASE_META: Record<string, { name: string; sub: string }> = {
+  'Phase 1': { name: 'Foundations', sub: 'Weeks 1–4 · Jun 15 – Jul 10' },
+  'Phase 2': { name: 'Networking & Applications', sub: 'Weeks 5–8 · Jul 13 – Aug 7' },
+  'Phase 3': { name: 'Volume & Move', sub: 'Weeks 9–12 · Aug 10 – Sep 4' },
+};
 
 const BLANK_TASK: Partial<Task> = { task:'', notes:'', phase:'Phase 1', priority:'High', week:'', due:'' };
 
@@ -198,10 +203,10 @@ export default function TasksPage() {
           {(['All','Phase 1','Phase 2','Phase 3'] as PhaseFilter[]).map(p => (
             <button key={p} onClick={() => setPhase(p)} style={{
               padding:'7px 14px', borderRadius:9, border:'none', cursor:'pointer',
-              fontFamily:'inherit', fontSize:12, fontWeight:600,
-              background: phase===p ? '#1A1613' : 'none', color: phase===p ? '#fff' : '#9C958B',
+              fontFamily:'inherit', fontSize:12, fontWeight:700,
+              background: phase===p ? '#F5552E' : 'none', color: phase===p ? '#fff' : '#9C958B',
               transition:'background .15s, color .15s',
-            }}>{p}</button>
+            }}>{p === 'All' ? 'All' : p.replace('Phase ', 'P')}</button>
           ))}
         </div>
         <div style={{ position:'relative', flex:1, minWidth:200, maxWidth:300 }}>
@@ -217,11 +222,11 @@ export default function TasksPage() {
                 borderColor: priFilter.has(p) ? PRI_COLORS[p] : '#E4DFD8',
                 background: priFilter.has(p) ? PRI_COLORS[p]+'22' : '#fff',
                 color: priFilter.has(p) ? PRI_COLORS[p] : '#9C958B',
-              }}>{p}</button>
+              }}>{p === 'Medium' ? 'Med' : p}</button>
           ))}
         </div>
-        <button onClick={() => setShowDone(v => !v)} style={{ padding:'7px 14px', borderRadius:10, border:'1px solid #E4DFD8', background: showDone?'#1A1613':'#fff', color: showDone?'#fff':'#9C958B', cursor:'pointer', fontFamily:'inherit', fontSize:12, fontWeight:600 }}>
-          {showDone ? 'Hide done' : 'Show done'}
+        <button onClick={() => setShowDone(v => !v)} style={{ padding:'7px 14px', borderRadius:10, border:'1px solid', borderColor: showDone?'#1A1613':'#E4DFD8', background: showDone?'#1A1613':'#fff', color: showDone?'#fff':'#9C958B', cursor:'pointer', fontFamily:'inherit', fontSize:12, fontWeight:600 }}>
+          ✓ Completed
         </button>
         <button onClick={() => setAddOpen(true)} className="coral-btn" style={{ height:36, padding:'0 16px', fontSize:13, borderRadius:11 }}>+ Add task</button>
       </div>
@@ -237,11 +242,12 @@ export default function TasksPage() {
           {sections.map(sec => (
             <div key={sec.phase}>
               <div style={{ display:'flex', alignItems:'center', gap:12, paddingBottom:11, borderBottom:'1px solid #ECE8E2', marginBottom:14 }}>
-                <span style={{ ...PHASE_COLORS[sec.phase] as React.CSSProperties, padding:'4px 12px', borderRadius:999, fontSize:11, fontWeight:700 }}>{sec.phase}</span>
+                <span style={{ ...PHASE_COLORS[sec.phase] as React.CSSProperties, padding:'4px 11px', borderRadius:999, fontSize:11, fontWeight:700 }}>{sec.phase.replace('Phase ', 'P')}</span>
                 <div>
-                  <div style={{ fontWeight:800, fontSize:16, letterSpacing:'-.01em' }}>{sec.phase === 'Phase 1' ? 'Foundations' : sec.phase === 'Phase 2' ? 'Networking & Applications' : 'Volume & Move'}</div>
+                  <div style={{ fontWeight:800, fontSize:16, letterSpacing:'-.01em' }}>{PHASE_META[sec.phase].name}</div>
+                  <div style={{ fontSize:12, fontWeight:500, color:'#9C958B', marginTop:1 }}>{PHASE_META[sec.phase].sub}</div>
                 </div>
-                <div style={{ marginLeft:'auto', fontSize:12, fontWeight:600, color:'#B5AEA4' }}>{sec.done}/{sec.total}</div>
+                <div style={{ marginLeft:'auto', fontSize:12, fontWeight:600, color:'#B5AEA4' }}>{sec.done}/{sec.total} done</div>
               </div>
               {sec.weeks.map(wk => (
                 <div key={wk.label} style={{ marginBottom:16 }}>
