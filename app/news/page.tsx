@@ -58,12 +58,12 @@ export default function NewsPage() {
 
   return (
     <div>
-      <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:18 }}>
+      <div className="page-head" style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:18 }}>
         <div>
           <div style={{ fontSize:13, fontWeight:500, color:'#9C958B' }}>Learn · Daily feed</div>
           <div className="page-title">Tech News</div>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+        <div className="page-head-actions" style={{ display:'flex', alignItems:'center', gap:14 }}>
           {lastFetch && !loading && (
             <span style={{ fontSize:12, color:'#9C958B' }}>Updated {timeAgo(lastFetch)}</span>
           )}

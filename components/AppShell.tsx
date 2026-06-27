@@ -27,7 +27,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Main content */}
-      <main style={{
+      <main className="main-content" style={{
         flex: 1,
         minWidth: 0,
         padding: '30px 36px 40px',

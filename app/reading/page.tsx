@@ -103,13 +103,13 @@ export default function ReadingPage() {
 
   return (
     <div>
-      <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:18 }}>
+      <div className="page-head" style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:18 }}>
         <div>
           <div style={{ fontSize:13, fontWeight:500, color:'#9C958B' }}>Learn · Books & articles</div>
           <div className="page-title">Reading List</div>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-          <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
+        <div className="page-head-actions" style={{ display:'flex', alignItems:'center', gap:14 }}>
+          <div className="page-head-meta" style={{ display:'flex', alignItems:'baseline', gap:8 }}>
             <span className="scc-num" style={{ fontWeight:300, fontSize:52, color:'#F5552E' }}>{doneCount}</span>
             <span style={{ fontSize:12, fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', color:'#9C958B' }}>done</span>
           </div>

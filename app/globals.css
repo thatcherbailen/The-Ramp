@@ -208,7 +208,38 @@ input, textarea, select {
 }
 
 @media (max-width: 768px) {
-  .page-title { font-size: 32px; }
+  .page-title { font-size: 30px; }
   .modal-overlay { padding: 16px; }
   .modal-box { padding: 20px; }
+
+  /* Tighter page gutters on phones */
+  .main-content { padding: 18px 16px 92px !important; }
+
+  /* Page headers: stack vertically, hide the big decorative count */
+  .page-head {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 14px !important;
+  }
+  .page-head-meta { display: none !important; }
+  .page-head-actions { width: 100%; flex-wrap: wrap; gap: 12px !important; }
+
+  /* Collapse inline multi-column grids to a single column on phones.
+     Opt out with .keep-grid (e.g. the calendar month grid). */
+  [style*="grid-template-columns"]:not(.keep-grid) {
+    grid-template-columns: 1fr !important;
+  }
+  /* Stat grids that read better as 2-up than stacked (declared after the
+     blanket rule so they win on equal specificity). */
+  .grid-2up:not(.keep-grid) { grid-template-columns: 1fr 1fr !important; }
+
+  /* Horizontally scrollable rows (tab bars, wide tables) */
+  .scroll-x {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .scroll-x::-webkit-scrollbar { height: 0; }
+
+  /* Hide table header rows when columns stack */
+  .table-head { display: none !important; }
 }

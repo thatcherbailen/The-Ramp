@@ -67,13 +67,13 @@ export default function StoriesPage() {
 
   return (
     <div>
-      <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:18 }}>
+      <div className="page-head" style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:18 }}>
         <div>
           <div style={{ fontSize:13, fontWeight:500, color:'#9C958B' }}>Prep · Interview stories</div>
           <div className="page-title">Story Bank</div>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:20 }}>
-          <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
+        <div className="page-head-actions" style={{ display:'flex', alignItems:'center', gap:20 }}>
+          <div className="page-head-meta" style={{ display:'flex', alignItems:'baseline', gap:8 }}>
             <span className="scc-num" style={{ fontWeight:300, fontSize:52, color:'#F5552E' }}>{allStories.length}</span>
             <span style={{ fontSize:12, fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', color:'#9C958B' }}>stories</span>
           </div>

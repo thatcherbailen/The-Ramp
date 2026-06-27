@@ -117,12 +117,12 @@ export default function CalendarPage() {
 
   return (
     <div>
-      <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:18 }}>
+      <div className="page-head" style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:18 }}>
         <div>
           <div style={{ fontSize:13, fontWeight:500, color:'#9C958B' }}>Pipeline · Schedule</div>
           <div className="page-title">Calendar</div>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+        <div className="page-head-actions" style={{ display:'flex', alignItems:'center', gap:14 }}>
           <div style={{ display:'flex', borderBottom:'none', gap:4 }}>
             {(['month','agenda'] as ViewMode[]).map(v => (
               <button key={v} onClick={() => setView(v)} style={{ padding:'9px 18px', borderRadius:10, border:'1px solid #ECE8E2', background: view===v ? '#1A1613' : '#fff', color: view===v ? '#fff' : '#6B655E', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
@@ -156,13 +156,13 @@ export default function CalendarPage() {
             <button onClick={nextMonth} style={{ width:34, height:34, borderRadius:8, border:'1px solid #ECE8E2', background:'#fff', cursor:'pointer', fontSize:16, display:'flex', alignItems:'center', justifyContent:'center' }}>›</button>
           </div>
           {/* Day headers */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', borderBottom:'1px solid #F1EDE7' }}>
+          <div className="keep-grid" style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', borderBottom:'1px solid #F1EDE7' }}>
             {DAYS.map(d => (
               <div key={d} style={{ padding:'10px 0', textAlign:'center', fontSize:10, fontWeight:700, letterSpacing:'.08em', textTransform:'uppercase', color:'#9C958B' }}>{d}</div>
             ))}
           </div>
           {/* Cells */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)' }}>
+          <div className="keep-grid" style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)' }}>
             {cells.map((day, i) => {
               if (!day) return <div key={i} style={{ minHeight:90, borderTop: i>=7 ? '1px solid #F1EDE7':undefined, borderRight:'1px solid #F1EDE7', background:'#FDFCFA' }} />;
               const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;

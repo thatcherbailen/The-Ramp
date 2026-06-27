@@ -49,13 +49,13 @@ export default function CallsPage() {
 
   return (
     <div>
-      <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:16 }}>
+      <div className="page-head" style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:16 }}>
         <div>
           <div style={{ fontSize:13, fontWeight:500, color:'#9C958B' }}>Pipeline · Outbound dials</div>
           <div className="page-title">Call Log</div>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:20 }}>
-          <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
+        <div className="page-head-actions" style={{ display:'flex', alignItems:'center', gap:20 }}>
+          <div className="page-head-meta" style={{ display:'flex', alignItems:'baseline', gap:8 }}>
             <span className="scc-num" style={{ fontWeight:300, fontSize:52, color:'#F5552E' }}>{calls.length}</span>
             <span style={{ fontSize:12, fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', color:'#9C958B' }}>total calls</span>
           </div>
@@ -66,7 +66,7 @@ export default function CallsPage() {
       </div>
 
       {/* Tab bar */}
-      <div style={{ display:'flex', borderBottom:'1px solid #ECE8E2', marginBottom:22 }}>
+      <div className="scroll-x" style={{ display:'flex', borderBottom:'1px solid #ECE8E2', marginBottom:22 }}>
         {(['log','dashboard','stories'] as Tab[]).map(t => (
           <button key={t} className={`tab-btn${tab===t?' active':''}`} onClick={() => setTab(t)}>
             {t === 'log' ? 'Call Log' : t === 'dashboard' ? 'Dashboard' : 'Stories'}
@@ -80,7 +80,7 @@ export default function CallsPage() {
           <EmptyState title="No calls logged yet" desc='Hit "Log a call" after every dial — the dashboard fills in automatically.' onAdd={() => setLogOpen(true)} btnLabel="+ Log a call" />
         ) : (
           <div className="card" style={{ overflow:'hidden' }}>
-            <div style={{ display:'grid', gridTemplateColumns:'34px 1.6fr 150px 58px 116px 60px', gap:14, padding:'13px 22px', background:'#FBF9F6', fontSize:10, fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:'#9C958B' }}>
+            <div className="table-head" style={{ display:'grid', gridTemplateColumns:'34px 1.6fr 150px 58px 116px 60px', gap:14, padding:'13px 22px', background:'#FBF9F6', fontSize:10, fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:'#9C958B' }}>
               <div>#</div><div>Lead · source</div><div>Outcome</div><div>Conf</div><div>Appointment</div><div></div>
             </div>
             {calls.map((c,i) => (
@@ -134,7 +134,7 @@ export default function CallsPage() {
       {/* DASHBOARD TAB */}
       {tab === 'dashboard' && (
         <div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:18 }}>
+          <div className="grid-2up" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:18 }}>
             {statsArr.map(s => (
               <div key={s.label} className="card" style={{ padding:'18px 22px' }}>
                 <div style={{ fontSize:10, fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:'#9C958B', marginBottom:6 }}>{s.label}</div>

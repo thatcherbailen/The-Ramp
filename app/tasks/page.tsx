@@ -157,12 +157,12 @@ export default function TasksPage() {
 
   return (
     <div>
-      <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:18 }}>
+      <div className="page-head" style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:18 }}>
         <div>
           <div style={{ fontSize:13, fontWeight:500, color:'#9C958B' }}>Main · SDR roadmap</div>
           <div className="page-title">Task Tracker</div>
         </div>
-        <div style={{ display:'flex', gap:10 }}>
+        <div className="page-head-actions" style={{ display:'flex', gap:10 }}>
           {[
             { label:'Total', value:total, ink:'#1A1613', bg:'#fff' },
             { label:'Done', value:doneCount, ink:'#3F8F5B', bg:'#E8F5EE' },

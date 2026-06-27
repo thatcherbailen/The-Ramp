@@ -100,13 +100,13 @@ export default function JobsPage() {
 
   return (
     <div>
-      <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:16 }}>
+      <div className="page-head" style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:16 }}>
         <div>
           <div style={{ fontSize:13, fontWeight:500, color:'#9C958B' }}>Pipeline · Applications</div>
           <div className="page-title">Job Tracker</div>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:20 }}>
-          <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
+        <div className="page-head-actions" style={{ display:'flex', alignItems:'center', gap:20 }}>
+          <div className="page-head-meta" style={{ display:'flex', alignItems:'baseline', gap:8 }}>
             <span className="scc-num" style={{ fontWeight:300, fontSize:52, color:'#F5552E' }}>{jobs.length}</span>
             <span style={{ fontSize:12, fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', color:'#9C958B' }}>total</span>
           </div>
@@ -115,7 +115,7 @@ export default function JobsPage() {
       </div>
 
       {/* Stats row */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:22 }}>
+      <div className="grid-2up" style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:22 }}>
         {statsRow.map(s => (
           <div key={s.label} className="card" style={{ padding:'14px 18px' }}>
             <div style={{ fontSize:10, fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:'#9C958B', marginBottom:4 }}>{s.label}</div>
@@ -124,7 +124,7 @@ export default function JobsPage() {
         ))}
       </div>
 
-      <div style={{ display:'flex', borderBottom:'1px solid #ECE8E2', marginBottom:22 }}>
+      <div className="scroll-x" style={{ display:'flex', borderBottom:'1px solid #ECE8E2', marginBottom:22 }}>
         {(['pipeline','applications','targets'] as Tab[]).map(t => (
           <button key={t} className={`tab-btn${tab===t?' active':''}`} onClick={() => setTab(t)}>
             {t === 'pipeline' ? 'Pipeline' : t === 'applications' ? 'Applications' : 'Target Companies'}
@@ -159,12 +159,12 @@ export default function JobsPage() {
         jobs.length === 0
           ? <EmptyState onAdd={() => setAddOpen(true)} />
           : <div className="card" style={{ overflow:'hidden' }}>
-            <div style={{ display:'grid', gridTemplateColumns:'34px 1.7fr 1fr 1fr auto 50px', gap:16, padding:'13px 22px', background:'#FBF9F6', fontSize:10, fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:'#9C958B' }}>
+            <div className="table-head" style={{ display:'grid', gridTemplateColumns:'34px 1.7fr 1fr 1fr auto 50px', gap:16, padding:'13px 22px', background:'#FBF9F6', fontSize:10, fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:'#9C958B' }}>
               <div>#</div><div>Role</div><div>Location · source</div><div>OTE</div><div>Status</div><div></div>
             </div>
             {jobs.map((j,i) => (
               <div key={j.id} style={{ padding:'16px 22px', borderTop:'1px solid #F1EDE7' }}>
-                <div style={{ display:'grid', gridTemplateColumns:'34px 1.7fr 1fr 1fr auto 50px', gap:16, alignItems:'center' }}>
+                <div className="keep-grid" style={{ display:'grid', gridTemplateColumns:'34px 1.7fr 1fr 1fr auto 50px', gap:16, alignItems:'center' }}>
                   <div className="scc-num" style={{ fontWeight:600, color:'#C5BFB6', fontSize:14 }}>{i+1}</div>
                   <div>
                     <div style={{ fontWeight:700, fontSize:15, letterSpacing:'-.01em' }}>{j.company}</div>
