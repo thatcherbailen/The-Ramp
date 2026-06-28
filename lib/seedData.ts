@@ -1,4 +1,20 @@
-import { Task, Story, PrepCard, Objection } from './types';
+import { Task, Story, PrepCard, Objection, Goal, TaskPhase } from './types';
+
+export const DEFAULT_GOAL_ID = 'goal_sdr';
+export const SEED_PHASE_IDS: Record<TaskPhase, string> = { 'Phase 1': 'p1', 'Phase 2': 'p2', 'Phase 3': 'p3' };
+
+export const DEFAULT_GOAL: Goal = {
+  id: DEFAULT_GOAL_ID,
+  name: 'Break into tech sales',
+  description: 'Land an SDR/BDR role in Sydney',
+  color: '#F5552E',
+  targetDate: '2026-09-01',
+  phases: [
+    { id: 'p1', name: 'Foundations', description: 'Numbers, LinkedIn, story, resume & certs', startDate: '2026-06-15', endDate: '2026-07-10' },
+    { id: 'p2', name: 'Networking & Applications', description: 'Warm outreach, target research, first applications', startDate: '2026-07-13', endDate: '2026-08-07' },
+    { id: 'p3', name: 'Volume & Move', description: 'Volume applications, interview blitz, relocate', startDate: '2026-08-10', endDate: '2026-09-04' },
+  ],
+};
 
 export const SEED_TASKS: Task[] = [
   { id:'p1w1_1', phase:'Phase 1', week:'Week 1 — Numbers, LinkedIn & Story', priority:'High', isNew:true,

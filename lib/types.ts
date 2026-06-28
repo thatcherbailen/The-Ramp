@@ -13,6 +13,25 @@ export interface Task {
   done?: boolean;
   due?: string;
   custom?: boolean;
+  goalId?: string;
+  phaseId?: string;
+}
+
+export interface Phase {
+  id: string;
+  name: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface Goal {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  targetDate?: string;
+  phases: Phase[];
 }
 
 export interface Job {

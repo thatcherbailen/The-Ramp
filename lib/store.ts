@@ -1,5 +1,6 @@
 'use client';
-import { Task, Job, Call, Story, PrepCard, Objection, Contact, CalendarEvent, Reading, NewsItem, Settings, DEFAULT_SETTINGS } from './types';
+import { Task, Job, Call, Story, PrepCard, Objection, Contact, CalendarEvent, Reading, NewsItem, Settings, Goal, DEFAULT_SETTINGS } from './types';
+import { DEFAULT_GOAL } from './seedData';
 
 const KEYS = {
   tasks: 'scc_tasks_done',
@@ -56,6 +57,22 @@ export function saveCustomTask(t: Task) {
 }
 export function deleteCustomTask(id: string) {
   save(KEYS.taskCustom, getCustomTasks().filter(x => x.id !== id));
+}
+
+// ── Goals (each goal owns its phases) ─────────────────────────────
+export function getGoals(): Goal[] {
+  const g = load<Goal[] | null>('scc_goals', null);
+  if (!g || !g.length) { save('scc_goals', [DEFAULT_GOAL]); return [DEFAULT_GOAL]; }
+  return g;
+}
+export function saveGoal(goal: Goal) {
+  const arr = getGoals();
+  const i = arr.findIndex(x => x.id === goal.id);
+  if (i >= 0) arr[i] = goal; else arr.push(goal);
+  save('scc_goals', arr);
+}
+export function deleteGoal(id: string) {
+  save('scc_goals', getGoals().filter(x => x.id !== id));
 }
 
 // ── Jobs ──────────────────────────────────────────────────────────
