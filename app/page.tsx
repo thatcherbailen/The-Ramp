@@ -4,6 +4,9 @@ import { useRouter } from 'next/navigation';
 import { getSettings, getCalls, getJobs, getCustomTasks, getTaskDone, getTaskDeletes, getTaskEdits, getStories, getContacts, getEvents } from '@/lib/store';
 import { SEED_TASKS, SEED_STORIES } from '@/lib/seedData';
 import LogCallModal from '@/components/LogCallModal';
+import { aggregateEvents, catColor, catLabel } from './calendar/page';
+
+type DayEvent = { id: string; title: string; cat: string; time: string };
 
 function greeting() {
   const h = new Date().getHours();
@@ -34,6 +37,7 @@ export default function TodayPage() {
   const [logOpen, setLogOpen] = useState(false);
   const [userName, setUserName] = useState('Bailen');
   const [cards, setCards] = useState<Card[]>([]);
+  const [todayEvents, setTodayEvents] = useState<DayEvent[]>([]);
 
   useEffect(() => {
     const settings = getSettings();
@@ -77,6 +81,9 @@ export default function TodayPage() {
       { type: 'module', tone: 'grey',  label: `${storiesCount} stories`, name: 'Story Bank', href: '/stories',    minH: 128 },
       { type: 'module', tone: 'tint',  label: 'Reading List',     name: 'Reading List',      href: '/reading',    minH: 150 },
     ]);
+
+    const evs = aggregateEvents().filter(e => e.date === today).sort((a, b) => a.sort.localeCompare(b.sort));
+    setTodayEvents(evs.map(e => ({ id: e.id, title: e.title, cat: e.cat, time: e.time })));
   }, [logOpen]);
 
   return (
@@ -131,6 +138,31 @@ export default function TodayPage() {
             </div>
           );
         })}
+      </div>
+
+      <div style={{ marginTop: 30, maxWidth: 760 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: '#9C958B' }}>Today&apos;s schedule</div>
+          <span onClick={() => router.push('/calendar')} style={{ fontSize: 12, fontWeight: 700, color: '#C24A24', cursor: 'pointer' }}>Open calendar →</span>
+        </div>
+        {todayEvents.length === 0 ? (
+          <div className="card" style={{ padding: '18px 20px', fontSize: 13, color: '#9C958B', lineHeight: 1.5 }}>
+            Nothing scheduled today. Add to your schedule from the Calendar — or log a call appointment, interview or follow-up and it lands here automatically.
+          </div>
+        ) : (
+          <div className="card" style={{ overflow: 'hidden' }}>
+            {todayEvents.map((ev, i) => (
+              <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 18px', borderTop: i > 0 ? '1px solid #F1EDE7' : undefined }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#9C958B', width: 56, flex: 'none' }}>{ev.time}</span>
+                <span style={{ width: 4, height: 30, borderRadius: 4, background: catColor(ev.cat), flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-.01em' }}>{ev.title}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: catColor(ev.cat), marginTop: 1 }}>{catLabel(ev.cat)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {logOpen && <LogCallModal onClose={() => setLogOpen(false)} />}

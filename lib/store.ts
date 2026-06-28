@@ -114,6 +114,17 @@ export function saveEvent(e: CalendarEvent) {
 }
 export function deleteEvent(id: string) { save(KEYS.events, getEvents().filter(x => x.id !== id)); }
 
+// Custom calendar categories (name + colour), shown in the legend
+export interface EventCat { name: string; color: string; }
+export function getEventCats(): EventCat[] { return load('scc_event_cats', []); }
+export function saveEventCat(c: EventCat) {
+  const arr = getEventCats();
+  const idx = arr.findIndex(x => x.name.toLowerCase() === c.name.toLowerCase());
+  if (idx >= 0) arr[idx] = c; else arr.push(c);
+  save('scc_event_cats', arr);
+}
+export function deleteEventCat(name: string) { save('scc_event_cats', getEventCats().filter(x => x.name !== name)); }
+
 // ── Reading ──────────────────────────────────────────────────────
 export function getReading(): Reading[] { return load(KEYS.reading, []); }
 export function saveReading(r: Reading) {

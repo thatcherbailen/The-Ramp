@@ -2,43 +2,63 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Modal from '@/components/Modal';
-import { getEvents, saveEvent, deleteEvent, uid, getJobs, getCalls, getContacts, getCustomTasks, getTaskDeletes, getTaskEdits } from '@/lib/store';
+import { getEvents, saveEvent, deleteEvent, uid, getJobs, getCalls, getContacts, getCustomTasks, getTaskDeletes, getTaskEdits, getEventCats, saveEventCat } from '@/lib/store';
 import { CalendarEvent, Task } from '@/lib/types';
 import { SEED_TASKS } from '@/lib/seedData';
 
 type ViewMode = 'agenda' | 'month';
-type Cat = 'Call' | 'Interview' | 'Task' | 'Networking' | 'Other';
 
-const CAT: Record<Cat, { color: string; label: string; href: string }> = {
+const BASE_CAT: Record<string, { color: string; label: string; href: string }> = {
   Call:       { color: '#F5552E', label: 'Call',       href: '/calls' },
   Interview:  { color: '#1A1613', label: 'Interview',  href: '/jobs' },
   Task:       { color: '#B7B0A6', label: 'Task',       href: '/tasks' },
   Networking: { color: '#D8431F', label: 'Networking', href: '/networking' },
   Other:      { color: '#9C958B', label: 'Event',      href: '/calendar' },
 };
-const CATS: Cat[] = ['Call', 'Interview', 'Task', 'Networking', 'Other'];
+const BASE_ORDER = ['Call', 'Interview', 'Task', 'Networking', 'Other'];
+
+export const catColor = (c: string) => BASE_CAT[c]?.color || getEventCats().find(x => x.name === c)?.color || '#9C958B';
+export const catLabel = (c: string) => BASE_CAT[c]?.label || c;
+const catHref = (c: string) => BASE_CAT[c]?.href || '/calendar';
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const WEEK_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']; // Monday-first
 
-type AggEvent = { id: string; date: string; title: string; cat: Cat; time: string; stored: boolean };
+type AggEvent = { id: string; date: string; title: string; cat: string; time: string; sort: string; stored: boolean };
 
 function iso(d: Date) { return d.toISOString().slice(0, 10); }
-function typeToCat(t: string): Cat {
-  if (t === 'Interview') return 'Interview';
-  if (t === 'Call block' || t === 'Call') return 'Call';
-  if (t === 'Follow-up' || t === 'Networking') return 'Networking';
-  if (t === 'Task') return 'Task';
-  return 'Other';
+function typeToCat(t: string): string {
+  if (t === 'Call block') return 'Call';
+  if (t === 'Follow-up') return 'Networking';
+  return t || 'Other';
+}
+// "14:30" -> "2:30pm"
+function fmtTime(t?: string): string {
+  if (!t || !/^\d{2}:\d{2}$/.test(t)) return '—';
+  const [h, m] = t.split(':').map(Number);
+  const ap = h < 12 ? 'am' : 'pm';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}${m ? ':' + String(m).padStart(2, '0') : ''}${ap}`;
 }
 
 function EventModal({ initial, defaultDate, onClose }: { initial?: CalendarEvent; defaultDate?: string; onClose: () => void }) {
-  const [f, setF] = useState<Partial<CalendarEvent>>({ title: '', date: defaultDate || '', type: 'Other', notes: '', ...initial });
+  const [f, setF] = useState<Partial<CalendarEvent>>({ title: '', date: defaultDate || '', time: '', type: 'Other', notes: '', ...initial });
+  const [newCat, setNewCat] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatColor, setNewCatColor] = useState('#7A5CFF');
+  const customCats = getEventCats();
+
   const save = () => {
     if (!f.title?.trim() || !f.date) return;
-    saveEvent({ id: initial?.id || uid(), title: f.title!, date: f.date!, type: f.type || 'Other', notes: f.notes || '' });
+    let type = f.type || 'Other';
+    if (newCat && newCatName.trim()) {
+      type = newCatName.trim();
+      saveEventCat({ name: type, color: newCatColor });
+    }
+    saveEvent({ id: initial?.id || uid(), title: f.title!, date: f.date!, time: f.time || '', type, notes: f.notes || '' });
     onClose();
   };
+
   return (
     <Modal title={initial ? 'Edit event' : 'Add to schedule'} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -46,21 +66,42 @@ function EventModal({ initial, defaultDate, onClose }: { initial?: CalendarEvent
           <label className="form-label">Event title</label>
           <input className="form-input" placeholder="Phone screen with Cloudflare…" value={f.title || ''} onChange={e => setF(v => ({ ...v, title: e.target.value }))} />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px', gap: 14 }}>
           <div>
             <label className="form-label">Date</label>
             <input className="form-input" type="date" value={f.date || ''} onChange={e => setF(v => ({ ...v, date: e.target.value }))} />
           </div>
           <div>
-            <label className="form-label">Type</label>
-            <select className="form-select" value={f.type || 'Other'} onChange={e => setF(v => ({ ...v, type: e.target.value }))}>
-              <option>Call</option><option>Interview</option><option>Task</option><option>Networking</option><option>Other</option>
-            </select>
+            <label className="form-label">Time</label>
+            <input className="form-input" type="time" value={f.time || ''} onChange={e => setF(v => ({ ...v, time: e.target.value }))} />
           </div>
         </div>
         <div>
+          <label className="form-label">Type / legend</label>
+          <select className="form-select" value={newCat ? '__new__' : (f.type || 'Other')} onChange={e => {
+            if (e.target.value === '__new__') { setNewCat(true); }
+            else { setNewCat(false); setF(v => ({ ...v, type: e.target.value })); }
+          }}>
+            {BASE_ORDER.map(c => <option key={c} value={c}>{c === 'Other' ? 'Other' : BASE_CAT[c].label}</option>)}
+            {customCats.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+            <option value="__new__">＋ New category…</option>
+          </select>
+        </div>
+        {newCat && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 56px', gap: 14, alignItems: 'end' }}>
+            <div>
+              <label className="form-label">New category name</label>
+              <input className="form-input" placeholder="e.g. Deep work" value={newCatName} onChange={e => setNewCatName(e.target.value)} />
+            </div>
+            <div>
+              <label className="form-label">Colour</label>
+              <input type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)} style={{ width: '100%', height: 44, border: '1px solid #E4DFD8', borderRadius: 12, background: '#fff', cursor: 'pointer', padding: 4 }} />
+            </div>
+          </div>
+        )}
+        <div>
           <label className="form-label">Notes</label>
-          <textarea className="form-input" placeholder="Context, prep needed…" value={f.notes || ''} onChange={e => setF(v => ({ ...v, notes: e.target.value }))} style={{ minHeight: 72, resize: 'vertical' }} />
+          <textarea className="form-input" placeholder="Context, prep needed…" value={f.notes || ''} onChange={e => setF(v => ({ ...v, notes: e.target.value }))} style={{ minHeight: 64, resize: 'vertical' }} />
         </div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
           {initial && (
@@ -74,6 +115,29 @@ function EventModal({ initial, defaultDate, onClose }: { initial?: CalendarEvent
   );
 }
 
+export function aggregateEvents(): AggEvent[] {
+  const agg: AggEvent[] = [];
+  const tkey = (t?: string) => (t && /^\d{2}:\d{2}$/.test(t)) ? t : '99:99';
+  getEvents().forEach(e => agg.push({ id: e.id, date: e.date, title: e.title, cat: typeToCat(e.type), time: fmtTime(e.time), sort: tkey(e.time), stored: true }));
+  getCalls().forEach(c => {
+    if (c.appointmentBooked && c.appointmentDate && /^\d{4}-\d{2}-\d{2}$/.test(c.appointmentDate))
+      agg.push({ id: `call-${c.id}`, date: c.appointmentDate, title: `Appointment — ${c.lead}`, cat: 'Call', time: '—', sort: '99:99', stored: false });
+  });
+  getJobs().forEach(j => {
+    if (j.interviewDate) agg.push({ id: `job-${j.id}`, date: j.interviewDate, title: `Interview — ${j.company}`, cat: 'Interview', time: '—', sort: '99:99', stored: false });
+  });
+  getContacts().forEach(c => {
+    if (c.followupDate && /^\d{4}-\d{2}-\d{2}$/.test(c.followupDate)) agg.push({ id: `net-${c.id}`, date: c.followupDate, title: `Follow up — ${c.name}`, cat: 'Networking', time: '—', sort: '99:99', stored: false });
+  });
+  const deletes = getTaskDeletes();
+  const edits = getTaskEdits();
+  const allTasks: Task[] = [...SEED_TASKS.filter(t => !deletes.has(t.id)).map(t => ({ ...t, ...(edits[t.id] || {}) })), ...getCustomTasks()];
+  allTasks.forEach(t => {
+    if (t.due && /^\d{4}-\d{2}-\d{2}$/.test(t.due)) agg.push({ id: `task-${t.id}`, date: t.due, title: t.task, cat: 'Task', time: '—', sort: '99:99', stored: false });
+  });
+  return agg;
+}
+
 export default function CalendarPage() {
   const router = useRouter();
   const today = new Date();
@@ -85,32 +149,7 @@ export default function CalendarPage() {
   const [addDate, setAddDate] = useState('');
   const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null);
 
-  const load = () => {
-    const agg: AggEvent[] = [];
-    // Manually-added events
-    getEvents().forEach(e => agg.push({ id: e.id, date: e.date, title: e.title, cat: typeToCat(e.type), time: e.time || '—', stored: true }));
-    // Call appointments
-    getCalls().forEach(c => {
-      if (c.appointmentBooked && c.appointmentDate && /^\d{4}-\d{2}-\d{2}$/.test(c.appointmentDate))
-        agg.push({ id: `call-${c.id}`, date: c.appointmentDate, title: `Appointment — ${c.lead}`, cat: 'Call', time: '—', stored: false });
-    });
-    // Job interviews
-    getJobs().forEach(j => {
-      if (j.interviewDate) agg.push({ id: `job-${j.id}`, date: j.interviewDate, title: `Interview — ${j.company}`, cat: 'Interview', time: '—', stored: false });
-    });
-    // Networking follow-ups
-    getContacts().forEach(c => {
-      if (c.followupDate && /^\d{4}-\d{2}-\d{2}$/.test(c.followupDate)) agg.push({ id: `net-${c.id}`, date: c.followupDate, title: `Follow up — ${c.name}`, cat: 'Networking', time: '—', stored: false });
-    });
-    // Task due dates
-    const deletes = getTaskDeletes();
-    const edits = getTaskEdits();
-    const allTasks: Task[] = [...SEED_TASKS.filter(t => !deletes.has(t.id)).map(t => ({ ...t, ...(edits[t.id] || {}) })), ...getCustomTasks()];
-    allTasks.forEach(t => {
-      if (t.due && /^\d{4}-\d{2}-\d{2}$/.test(t.due)) agg.push({ id: `task-${t.id}`, date: t.due, title: t.task, cat: 'Task', time: '—', stored: false });
-    });
-    setEvents(agg);
-  };
+  const load = () => setEvents(aggregateEvents());
   useEffect(() => { load(); }, []);
 
   const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
@@ -118,43 +157,38 @@ export default function CalendarPage() {
 
   const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
   const monthEvents = events.filter(e => e.date.startsWith(monthPrefix));
-  const eventsOn = (dateStr: string) => events.filter(e => e.date === dateStr).sort((a, b) => CATS.indexOf(a.cat) - CATS.indexOf(b.cat));
+  const catRank = (c: string) => { const i = BASE_ORDER.indexOf(c); return i < 0 ? 99 : i; };
+  const eventsOn = (dateStr: string) => events.filter(e => e.date === dateStr).sort((a, b) => (a.sort === b.sort ? catRank(a.cat) - catRank(b.cat) : a.sort.localeCompare(b.sort)));
 
-  // Legend counts (this month)
-  const legend = (['Call', 'Interview', 'Task', 'Networking'] as Cat[]).map(c => ({
-    cat: c, count: monthEvents.filter(e => e.cat === c).length,
-  }));
+  // Legend: base categories + any custom categories that have events this month
+  const customCats = getEventCats();
+  const legendCats = [...BASE_ORDER.filter(c => c !== 'Other'), ...customCats.map(c => c.name)];
+  const legend = legendCats.map(c => ({ cat: c, count: monthEvents.filter(e => e.cat === c).length }))
+    .filter(l => BASE_ORDER.includes(l.cat) || l.count > 0);
 
-  // Mini-month + month grid cells (Monday-first)
   const firstDayMon = (new Date(year, month, 1).getDay() + 6) % 7;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const cells: (number | null)[] = [...Array(firstDayMon).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
   while (cells.length % 7 !== 0) cells.push(null);
 
-  // Agenda: days in month that have events, ascending
   const agendaDays = [...new Set(monthEvents.map(e => e.date))].sort().map(date => {
     const d = new Date(date + 'T00:00:00');
-    return {
-      date, dom: d.getDate(),
-      dow: d.toLocaleDateString('en-AU', { weekday: 'short' }),
-      isToday: date === iso(today),
-      events: eventsOn(date),
-    };
+    return { date, dom: d.getDate(), dow: d.toLocaleDateString('en-AU', { weekday: 'short' }), isToday: date === iso(today), events: eventsOn(date) };
   });
 
   const openAdd = (date = '') => { setAddDate(date); setAddOpen(true); };
   const onEventClick = (ev: AggEvent) => {
     if (ev.stored) { const stored = getEvents().find(e => e.id === ev.id); if (stored) setEditEvent(stored); }
-    else router.push(CAT[ev.cat].href);
+    else router.push(catHref(ev.cat));
   };
 
   const monthLabel = `${MONTHS[month]} ${year}`;
+  const legendName = (c: string) => c === 'Call' ? 'Calls' : c === 'Interview' ? 'Interviews' : c === 'Task' ? 'Tasks' : c;
 
   return (
     <div>
       {/* ===================== DESKTOP ===================== */}
       <div className="hidden md:flex" style={{ gap: 26, alignItems: 'flex-start' }}>
-        {/* Left rail */}
         <div style={{ width: 262, flex: 'none', display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Mini month */}
           <div style={{ background: '#fff', border: '1px solid #ECE8E2', borderRadius: 18, padding: 18 }}>
@@ -187,16 +221,16 @@ export default function CalendarPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
               {legend.map(lg => (
                 <div key={lg.cat} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ width: 11, height: 11, borderRadius: 3, background: CAT[lg.cat].color }} />
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>{lg.cat === 'Call' ? 'Calls' : lg.cat === 'Interview' ? 'Interviews' : lg.cat === 'Task' ? 'Tasks' : 'Networking'}</span>
+                  <span style={{ width: 11, height: 11, borderRadius: 3, background: catColor(lg.cat) }} />
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{legendName(lg.cat)}</span>
                   <span style={{ marginLeft: 'auto', fontSize: 12, color: '#9C958B' }}>{lg.count}</span>
                 </div>
               ))}
             </div>
+            <button onClick={() => openAdd()} style={{ marginTop: 14, width: '100%', padding: '9px 0', borderRadius: 10, border: '1px dashed #D8D2C8', background: '#fff', color: '#9C958B', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>＋ Add category / event</button>
           </div>
         </div>
 
-        {/* Main */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 8 }}>
             <div>
@@ -236,7 +270,7 @@ export default function CalendarPage() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 5 }}>
                         {dayEvents.slice(0, 3).map(ev => (
                           <div key={ev.id} onClick={e => { e.stopPropagation(); onEventClick(ev); }} title={ev.title} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 600, color: '#3F3A34', overflow: 'hidden' }}>
-                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: CAT[ev.cat].color, flexShrink: 0 }} />
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: catColor(ev.cat), flexShrink: 0 }} />
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</span>
                           </div>
                         ))}
@@ -263,11 +297,11 @@ export default function CalendarPage() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {d.events.map(ev => (
                       <div key={ev.id} onClick={() => onEventClick(ev)} className="card" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 18px', cursor: 'pointer' }}>
-                        <span style={{ width: 4, height: 34, borderRadius: 4, background: CAT[ev.cat].color, flexShrink: 0 }} />
-                        <span style={{ fontSize: 13, fontWeight: 500, color: '#9C958B', width: 50, flex: 'none' }}>{ev.time}</span>
+                        <span style={{ width: 4, height: 34, borderRadius: 4, background: catColor(ev.cat), flexShrink: 0 }} />
+                        <span style={{ fontSize: 13, fontWeight: 500, color: '#9C958B', width: 56, flex: 'none' }}>{ev.time}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-.01em' }}>{ev.title}</div>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: CAT[ev.cat].color, marginTop: 2 }}>{CAT[ev.cat].label}{ev.stored ? '' : ' · auto'}</div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: catColor(ev.cat), marginTop: 2 }}>{catLabel(ev.cat)}{ev.stored ? '' : ' · auto'}</div>
                         </div>
                       </div>
                     ))}
@@ -306,11 +340,11 @@ export default function CalendarPage() {
             </div>
             {d.events.map(ev => (
               <div key={ev.id} onClick={() => onEventClick(ev)} style={{ display: 'flex', gap: 12, padding: '11px 0', cursor: 'pointer' }}>
-                <span style={{ fontSize: 12, fontWeight: 500, color: '#9C958B', width: 46, flex: 'none' }}>{ev.time}</span>
-                <span style={{ width: 4, borderRadius: 4, background: CAT[ev.cat].color, flexShrink: 0 }} />
+                <span style={{ fontSize: 12, fontWeight: 500, color: '#9C958B', width: 52, flex: 'none' }}>{ev.time}</span>
+                <span style={{ width: 4, borderRadius: 4, background: catColor(ev.cat), flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 14, letterSpacing: '-.01em' }}>{ev.title}</div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: CAT[ev.cat].color, marginTop: 1 }}>{CAT[ev.cat].label}{ev.stored ? '' : ' · auto'}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: catColor(ev.cat), marginTop: 1 }}>{catLabel(ev.cat)}{ev.stored ? '' : ' · auto'}</div>
                 </div>
               </div>
             ))}
