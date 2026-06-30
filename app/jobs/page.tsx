@@ -2,13 +2,15 @@
 import { useState, useEffect } from 'react';
 import Modal from '@/components/Modal';
 import DotMenu from '@/components/DotMenu';
-import { getJobs, saveJob, deleteJob, uid, getContacts, getCalls, getGoals, getOutreach, saveOutreach, deleteOutreach, getRoofing, saveRoofingWeek } from '@/lib/store';
+import { getJobs, saveJob, deleteJob, uid, getCalls, getGoals, getOutreach, saveOutreach, deleteOutreach, getRoofing, saveRoofingWeek, getSettings } from '@/lib/store';
 import { Job, OutreachEntry, RoofingWeek } from '@/lib/types';
 import { SEED_TARGETS } from '@/lib/seedData';
 
-type Tab = 'pipeline' | 'dashboard' | 'targets' | 'outreach' | 'applications' | 'roofing';
+type Opening = { company: string; role: string; location: string; url: string; source: string; posted: string; summary: string };
+
+type Tab = 'pipeline' | 'find' | 'dashboard' | 'targets' | 'outreach' | 'applications' | 'roofing';
 const TABS: { key: Tab; label: string }[] = [
-  { key: 'pipeline', label: 'Pipeline' }, { key: 'dashboard', label: 'Dashboard' }, { key: 'targets', label: 'Targets' },
+  { key: 'pipeline', label: 'Pipeline' }, { key: 'find', label: 'Find Jobs' }, { key: 'dashboard', label: 'Dashboard' }, { key: 'targets', label: 'Targets' },
   { key: 'outreach', label: 'Outreach' }, { key: 'applications', label: 'Applications' }, { key: 'roofing', label: 'Roofing' },
 ];
 
@@ -145,6 +147,11 @@ export default function JobsPage() {
   const [jobOpen, setJobOpen] = useState(false); const [editJob, setEditJob] = useState<Job | null>(null);
   const [outOpen, setOutOpen] = useState(false); const [editOut, setEditOut] = useState<OutreachEntry | null>(null);
   const [editWeek, setEditWeek] = useState<string | null>(null);
+  // AI job finder
+  const [fCompanies, setFCompanies] = useState(''); const [fKeywords, setFKeywords] = useState(''); const [fLocation, setFLocation] = useState('');
+  const [searching, setSearching] = useState(false); const [searchErr, setSearchErr] = useState('');
+  const [results, setResults] = useState<Opening[]>([]); const [searched, setSearched] = useState(false);
+  const [addedKeys, setAddedKeys] = useState<Set<string>>(new Set());
 
   const load = () => {
     setJobs(getJobs());
@@ -159,7 +166,42 @@ export default function JobsPage() {
       setPlanStart(starts[0] || ''); setPlanEnd(ends[ends.length - 1] || '');
     }
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const s = getSettings();
+    setFCompanies(s.targetCompanies || '');
+    setFKeywords(s.targetRole || 'SDR, BDR, Account Executive');
+    setFLocation(s.city || 'Sydney, Australia');
+  }, []);
+
+  const runSearch = async () => {
+    setSearching(true); setSearchErr(''); setSearched(true);
+    try {
+      const res = await fetch('/api/job-search', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companies: fCompanies, keywords: fKeywords, location: fLocation }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Search failed.');
+      setResults(Array.isArray(data.openings) ? data.openings : []);
+    } catch (e: unknown) {
+      setSearchErr(e instanceof Error ? e.message : 'Search failed. Please try again.');
+      setResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const addOpening = (o: Opening) => {
+    const key = `${o.company}|${o.role}`.toLowerCase();
+    saveJob({
+      id: uid(), company: o.company, role: o.role, location: o.location, source: o.source || 'AI search',
+      status: 'Researching', ote: '', nextStep: o.url ? 'Apply' : '', contact: '',
+      notes: [o.summary, o.url ? `Apply: ${o.url}` : ''].filter(Boolean).join('\n'),
+    });
+    setAddedKeys(prev => new Set(prev).add(key));
+    load();
+  };
 
   const pipeline = jobs.filter(j => !['Rejected', 'Closed'].includes(j.status));
   const interviewPlus = jobs.filter(j => ['Interview', 'Final Round', 'Offer'].includes(j.status)).length;
@@ -174,11 +216,11 @@ export default function JobsPage() {
   const rt = weeks.reduce((acc, w) => { const d = roofing[w]; if (d) { acc.calls += num(d.calls); acc.booked += num(d.booked); acc.held += num(d.held); acc.sent += num(d.sent); acc.won += num(d.won); } return acc; }, { calls: 0, booked: 0, held: 0, sent: 0, won: 0 });
 
   const counts: Record<Tab, { n: number | string; label: string }> = {
-    pipeline: { n: jobs.length, label: 'roles' }, dashboard: { n: jobs.length, label: 'tracked' }, targets: { n: SEED_TARGETS.length, label: 'companies' },
+    pipeline: { n: jobs.length, label: 'roles' }, find: { n: results.length, label: 'found' }, dashboard: { n: jobs.length, label: 'tracked' }, targets: { n: SEED_TARGETS.length, label: 'companies' },
     outreach: { n: outreach.length, label: 'contacts' }, applications: { n: jobs.length, label: 'apps' }, roofing: { n: weeks.length, label: 'weeks' },
   };
   const kicker: Record<Tab, string> = {
-    pipeline: 'Job Search · Pipeline', dashboard: 'Job Search · Dashboard', targets: 'Job Search · Target Companies',
+    pipeline: 'Job Search · Pipeline', find: 'Job Search · AI Finder', dashboard: 'Job Search · Dashboard', targets: 'Job Search · Target Companies',
     outreach: 'Job Search · Outreach Tracker', applications: 'Job Search · Application Tracker', roofing: 'Job Search · Roofing Metrics',
   };
   const headerAdd = () => tab === 'outreach' ? setOutOpen(true) : setJobOpen(true);
@@ -216,6 +258,92 @@ export default function JobsPage() {
           ))}
         </div>
       ))}
+
+      {/* FIND JOBS (AI) */}
+      {tab === 'find' && (
+        <div>
+          {/* Dark intro banner */}
+          <div style={{ background: 'var(--fill-dark)', borderRadius: 18, padding: '22px 24px', color: '#fff', marginBottom: 18 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,.4)', marginBottom: 8 }}>AI job finder</div>
+            <div style={{ fontSize: 14, color: 'rgba(255,255,255,.8)', lineHeight: 1.6, maxWidth: 760 }}>
+              Tell it the companies you want and the kind of role, and it searches the web for current openings. Add the good ones straight to your pipeline.
+            </div>
+          </div>
+
+          {/* Search form */}
+          <div className="card" style={{ padding: '20px 22px', marginBottom: 18 }}>
+            <div className="grid-2up" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+              <div><label className="form-label">Companies</label><input className="form-input" placeholder="Cloudflare, Datadog, Snowflake…" value={fCompanies} onChange={e => setFCompanies(e.target.value)} /></div>
+              <div><label className="form-label">Role types / keywords</label><input className="form-input" placeholder="SDR, BDR, Account Executive" value={fKeywords} onChange={e => setFKeywords(e.target.value)} /></div>
+            </div>
+            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 200 }}><label className="form-label">Location</label><input className="form-input" placeholder="Sydney, Australia" value={fLocation} onChange={e => setFLocation(e.target.value)} /></div>
+              <button onClick={runSearch} disabled={searching} className="coral-btn" style={{ height: 46, padding: '0 26px', fontSize: 15, opacity: searching ? .65 : 1 }}>
+                {searching ? 'Searching the web…' : 'Search jobs'}
+              </button>
+            </div>
+            <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 12, lineHeight: 1.5 }}>
+              Live web search — a run can take 20–60 seconds. Listings are AI-gathered, so confirm details on the company&apos;s own page before applying.
+            </div>
+          </div>
+
+          {searchErr && (
+            <div style={{ background: '#FFF3CD', border: '1px solid #F5DFA0', borderRadius: 12, padding: '14px 18px', fontSize: 13, color: '#8A6D00', marginBottom: 18 }}>{searchErr}</div>
+          )}
+
+          {searching ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="card" style={{ padding: '20px 22px', height: 104, background: 'linear-gradient(90deg,var(--card-3) 0%,var(--card-2) 50%,var(--card-3) 100%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />
+              ))}
+            </div>
+          ) : results.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {results.map((o, i) => {
+                const key = `${o.company}|${o.role}`.toLowerCase();
+                const added = addedKeys.has(key);
+                return (
+                  <div key={i} className="card" style={{ padding: '18px 22px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: 220 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                          <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-.01em' }}>{o.company}</span>
+                          {o.source && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted-2)' }}>· {o.source}</span>}
+                          {o.posted && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted-2)' }}>· {o.posted}</span>}
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-2)' }}>{o.role}</div>
+                        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 1 }}>{o.location}</div>
+                        {o.summary && <div style={{ fontSize: 13, color: 'var(--ink-2b)', lineHeight: 1.55, marginTop: 8 }}>{o.summary}</div>}
+                        {o.url && <a href={o.url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', marginTop: 8, fontSize: 12.5, fontWeight: 700, color: 'var(--accent-ink)', textDecoration: 'none' }}>Open listing ↗</a>}
+                      </div>
+                      <button
+                        onClick={() => addOpening(o)}
+                        disabled={added}
+                        className={added ? '' : 'coral-btn'}
+                        style={added
+                          ? { height: 40, padding: '0 16px', fontSize: 13, borderRadius: 11, border: '1px solid var(--line-2)', background: 'var(--card)', color: 'var(--muted)', fontWeight: 700, fontFamily: 'inherit', cursor: 'default', whiteSpace: 'nowrap' }
+                          : { height: 40, padding: '0 18px', fontSize: 13, borderRadius: 11, whiteSpace: 'nowrap' }}
+                      >
+                        {added ? '✓ Added' : '+ Add to pipeline'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : searched ? (
+            <div className="card" style={{ padding: '48px 40px', textAlign: 'center' }}>
+              <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 8 }}>No openings found</div>
+              <div style={{ fontSize: 14, color: 'var(--muted)', maxWidth: 420, margin: '0 auto', lineHeight: 1.55 }}>Nothing matched this run. Try fewer companies, broader keywords, or a wider location — then search again.</div>
+            </div>
+          ) : (
+            <div className="card" style={{ padding: '48px 40px', textAlign: 'center' }}>
+              <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 8 }}>Search for openings</div>
+              <div style={{ fontSize: 14, color: 'var(--muted)', maxWidth: 420, margin: '0 auto', lineHeight: 1.55 }}>Your target companies and role are pre-filled from Settings — tweak them above and hit <strong style={{ color: 'var(--ink-2)' }}>Search jobs</strong>.</div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* DASHBOARD */}
       {tab === 'dashboard' && (
