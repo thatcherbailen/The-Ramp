@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { RampMark } from './Logo';
 
 const NAV = [
   { group: 'MAIN', items: [
@@ -42,9 +43,12 @@ export default function Sidebar({ onSettings, onProfile }: { onSettings: () => v
       top: 0,
       overflowY: 'auto',
     }}>
-      <div style={{ padding: '0 12px 20px' }}>
-        <div style={{ fontWeight: 800, fontSize: 21, letterSpacing: '-.02em' }}>The Ramp</div>
-        <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', marginTop: 3 }}>SDR Prep Platform</div>
+      <div style={{ padding: '0 12px 20px', display: 'flex', alignItems: 'center', gap: 11 }}>
+        <RampMark size={34} />
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 21, letterSpacing: '-.02em', lineHeight: 1 }}>The Ramp</div>
+          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', marginTop: 4 }}>SDR Prep Platform</div>
+        </div>
       </div>
 
       {NAV.map(section => (

@@ -26,7 +26,6 @@ const WEEK_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']; // Monday-first
 
 type AggEvent = { id: string; date: string; title: string; cat: string; time: string; sort: string; stored: boolean };
 
-function iso(d: Date) { return d.toISOString().slice(0, 10); }
 function typeToCat(t: string): string {
   if (t === 'Call block') return 'Call';
   if (t === 'Follow-up') return 'Networking';
@@ -40,9 +39,19 @@ function fmtTime(t?: string): string {
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12}${m ? ':' + String(m).padStart(2, '0') : ''}${ap}`;
 }
+// "09:00","10:30" -> "9–10:30am"  |  "09:00" -> "9am"
+function fmtRange(start?: string, end?: string): string {
+  const s = fmtTime(start);
+  if (s === '—') return '—';
+  const e = fmtTime(end);
+  if (e === '—') return s;
+  return s.slice(-2) === e.slice(-2) ? `${s.slice(0, -2)}–${e}` : `${s}–${e}`;
+}
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const ymd = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
 function EventModal({ initial, defaultDate, onClose }: { initial?: CalendarEvent; defaultDate?: string; onClose: () => void }) {
-  const [f, setF] = useState<Partial<CalendarEvent>>({ title: '', date: defaultDate || '', time: '', type: 'Other', notes: '', ...initial });
+  const [f, setF] = useState<Partial<CalendarEvent>>({ title: '', date: defaultDate || '', time: '', endTime: '', type: 'Other', notes: '', ...initial });
   const [newCat, setNewCat] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState('#7A5CFF');
@@ -55,7 +64,7 @@ function EventModal({ initial, defaultDate, onClose }: { initial?: CalendarEvent
       type = newCatName.trim();
       saveEventCat({ name: type, color: newCatColor });
     }
-    saveEvent({ id: initial?.id || uid(), title: f.title!, date: f.date!, time: f.time || '', type, notes: f.notes || '' });
+    saveEvent({ id: initial?.id || uid(), title: f.title!, date: f.date!, time: f.time || '', endTime: f.endTime || '', type, notes: f.notes || '' });
     onClose();
   };
 
@@ -66,15 +75,18 @@ function EventModal({ initial, defaultDate, onClose }: { initial?: CalendarEvent
           <label className="form-label">Event title</label>
           <input className="form-input" placeholder="Phone screen with Cloudflare…" value={f.title || ''} onChange={e => setF(v => ({ ...v, title: e.target.value }))} />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px', gap: 14 }}>
-          <div>
-            <label className="form-label">Date</label>
-            <input className="form-input" type="date" value={f.date || ''} onChange={e => setF(v => ({ ...v, date: e.target.value }))} />
+        <div>
+          <label className="form-label">Date</label>
+          <input className="form-input" type="date" value={f.date || ''} onChange={e => setF(v => ({ ...v, date: e.target.value }))} />
+        </div>
+        <div>
+          <label className="form-label">Time block</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <input className="form-input" type="time" value={f.time || ''} onChange={e => setF(v => ({ ...v, time: e.target.value }))} style={{ flex: 1 }} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', flex: 'none' }}>to</span>
+            <input className="form-input" type="time" value={f.endTime || ''} onChange={e => setF(v => ({ ...v, endTime: e.target.value }))} style={{ flex: 1 }} />
           </div>
-          <div>
-            <label className="form-label">Time</label>
-            <input className="form-input" type="time" value={f.time || ''} onChange={e => setF(v => ({ ...v, time: e.target.value }))} />
-          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 6 }}>Set both for a block of time, or leave the end blank for a single moment.</div>
         </div>
         <div>
           <label className="form-label">Type / legend</label>
@@ -125,7 +137,7 @@ function EventModal({ initial, defaultDate, onClose }: { initial?: CalendarEvent
 export function aggregateEvents(): AggEvent[] {
   const agg: AggEvent[] = [];
   const tkey = (t?: string) => (t && /^\d{2}:\d{2}$/.test(t)) ? t : '99:99';
-  getEvents().forEach(e => agg.push({ id: e.id, date: e.date, title: e.title, cat: typeToCat(e.type), time: fmtTime(e.time), sort: tkey(e.time), stored: true }));
+  getEvents().forEach(e => agg.push({ id: e.id, date: e.date, title: e.title, cat: typeToCat(e.type), time: fmtRange(e.time, e.endTime), sort: tkey(e.time), stored: true }));
   getCalls().forEach(c => {
     if (c.appointmentBooked && c.appointmentDate && /^\d{4}-\d{2}-\d{2}$/.test(c.appointmentDate))
       agg.push({ id: `call-${c.id}`, date: c.appointmentDate, title: `Appointment — ${c.lead}`, cat: 'Call', time: '—', sort: '99:99', stored: false });
@@ -173,14 +185,20 @@ export default function CalendarPage() {
   const legend = legendCats.map(c => ({ cat: c, count: monthEvents.filter(e => e.cat === c).length }))
     .filter(l => BASE_ORDER.includes(l.cat) || l.count > 0);
 
+  // 6-week-safe grid that includes trailing days from the previous month and
+  // leading days of the next month, so a week is never padded with blanks.
+  const todayStr = ymd(today);
   const firstDayMon = (new Date(year, month, 1).getDay() + 6) % 7;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const cells: (number | null)[] = [...Array(firstDayMon).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
-  while (cells.length % 7 !== 0) cells.push(null);
+  type Cell = { key: string; day: number; dateStr: string; inMonth: boolean };
+  const cells: Cell[] = [];
+  for (let i = firstDayMon; i > 0; i--) { const d = new Date(year, month, 1 - i); cells.push({ key: 'p' + i, day: d.getDate(), dateStr: ymd(d), inMonth: false }); }
+  for (let day = 1; day <= daysInMonth; day++) cells.push({ key: 'c' + day, day, dateStr: `${monthPrefix}-${pad2(day)}`, inMonth: true });
+  for (let n = 1; cells.length % 7 !== 0; n++) { const d = new Date(year, month + 1, n); cells.push({ key: 'n' + n, day: d.getDate(), dateStr: ymd(d), inMonth: false }); }
 
   const agendaDays = [...new Set(monthEvents.map(e => e.date))].sort().map(date => {
     const d = new Date(date + 'T00:00:00');
-    return { date, dom: d.getDate(), dow: d.toLocaleDateString('en-AU', { weekday: 'short' }), isToday: date === iso(today), events: eventsOn(date) };
+    return { date, dom: d.getDate(), dow: d.toLocaleDateString('en-AU', { weekday: 'short' }), isToday: date === todayStr, events: eventsOn(date) };
   });
 
   const openAdd = (date = '') => { setAddDate(date); setAddOpen(true); };
@@ -207,16 +225,14 @@ export default function CalendarPage() {
               {WEEK_INITIALS.map((w, i) => <div key={i} style={{ textAlign: 'center' }}>{w}</div>)}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3 }}>
-              {cells.map((day, i) => {
-                if (!day) return <div key={i} />;
-                const dateStr = `${monthPrefix}-${String(day).padStart(2, '0')}`;
-                const isToday = dateStr === iso(today);
-                const has = events.some(e => e.date === dateStr);
+              {cells.map((c) => {
+                const isToday = c.inMonth && c.dateStr === todayStr;
+                const has = events.some(e => e.date === c.dateStr);
                 return (
-                  <div key={i} onClick={() => openAdd(dateStr)} title="Add to schedule"
-                    style={{ aspectRatio: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, fontSize: 12, fontWeight: isToday ? 700 : 500, color: isToday ? '#fff' : 'var(--ink-2)', background: isToday ? '#F5552E' : 'transparent', borderRadius: 9, cursor: 'pointer' }}>
-                    <span>{day}</span>
-                    <span style={{ width: 4, height: 4, borderRadius: '50%', background: has && !isToday ? '#F5552E' : 'transparent' }} />
+                  <div key={c.key} onClick={() => openAdd(c.dateStr)} title="Add to schedule"
+                    style={{ aspectRatio: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, fontSize: 12, fontWeight: isToday ? 700 : 500, color: isToday ? '#fff' : (c.inMonth ? 'var(--ink-2)' : 'var(--muted-3)'), background: isToday ? '#F5552E' : 'transparent', borderRadius: 9, cursor: 'pointer' }}>
+                    <span>{c.day}</span>
+                    <span style={{ width: 4, height: 4, borderRadius: '50%', background: has && !isToday ? (c.inMonth ? '#F5552E' : 'var(--muted-3)') : 'transparent' }} />
                   </div>
                 );
               })}
@@ -266,14 +282,12 @@ export default function CalendarPage() {
                 {WEEK_INITIALS.map((w, i) => <div key={i} style={{ paddingLeft: 2 }}>{w}</div>)}
               </div>
               <div className="keep-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 6 }}>
-                {cells.map((day, i) => {
-                  if (!day) return <div key={i} style={{ minHeight: 92 }} />;
-                  const dateStr = `${monthPrefix}-${String(day).padStart(2, '0')}`;
-                  const isToday = dateStr === iso(today);
-                  const dayEvents = eventsOn(dateStr);
+                {cells.map((c) => {
+                  const isToday = c.inMonth && c.dateStr === todayStr;
+                  const dayEvents = eventsOn(c.dateStr);
                   return (
-                    <div key={i} onClick={() => openAdd(dateStr)} style={{ minHeight: 92, border: '1px solid var(--line-3)', borderRadius: 10, padding: 7, cursor: 'pointer', background: isToday ? 'var(--accent-soft)' : 'var(--card)' }}>
-                      <span style={{ fontSize: 12, fontWeight: isToday ? 800 : 600, color: isToday ? '#F5552E' : 'var(--ink-2b)' }}>{day}</span>
+                    <div key={c.key} onClick={() => openAdd(c.dateStr)} style={{ minHeight: 92, border: '1px solid var(--line-3)', borderRadius: 10, padding: 7, cursor: 'pointer', background: isToday ? 'var(--accent-soft)' : (c.inMonth ? 'var(--card)' : 'var(--card-2)') }}>
+                      <span style={{ fontSize: 12, fontWeight: isToday ? 800 : 600, color: isToday ? '#F5552E' : (c.inMonth ? 'var(--ink-2b)' : 'var(--muted-3)') }}>{c.day}</span>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 5 }}>
                         {dayEvents.slice(0, 3).map(ev => (
                           <div key={ev.id} onClick={e => { e.stopPropagation(); onEventClick(ev); }} title={ev.title} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 600, color: 'var(--ink-2)', overflow: 'hidden' }}>
@@ -305,7 +319,7 @@ export default function CalendarPage() {
                     {d.events.map(ev => (
                       <div key={ev.id} onClick={() => onEventClick(ev)} className="card" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 18px', cursor: 'pointer' }}>
                         <span style={{ width: 4, height: 34, borderRadius: 4, background: catColor(ev.cat), flexShrink: 0 }} />
-                        <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted)', width: 56, flex: 'none' }}>{ev.time}</span>
+                        <span style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--muted)', width: 92, flex: 'none', whiteSpace: 'nowrap' }}>{ev.time}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-.01em' }}>{ev.title}</div>
                           <div style={{ fontSize: 12, fontWeight: 600, color: catColor(ev.cat), marginTop: 2 }}>{catLabel(ev.cat)}{ev.stored ? '' : ' · auto'}</div>
@@ -347,7 +361,7 @@ export default function CalendarPage() {
             </div>
             {d.events.map(ev => (
               <div key={ev.id} onClick={() => onEventClick(ev)} style={{ display: 'flex', gap: 12, padding: '11px 0', cursor: 'pointer' }}>
-                <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--muted)', width: 52, flex: 'none' }}>{ev.time}</span>
+                <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--muted)', width: 68, flex: 'none', whiteSpace: 'nowrap' }}>{ev.time}</span>
                 <span style={{ width: 4, borderRadius: 4, background: catColor(ev.cat), flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 14, letterSpacing: '-.01em' }}>{ev.title}</div>

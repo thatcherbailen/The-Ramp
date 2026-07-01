@@ -142,6 +142,7 @@ export interface CalendarEvent {
   id: string;
   date: string;
   time?: string;
+  endTime?: string;
   title: string;
   type: string;
   notes?: string;

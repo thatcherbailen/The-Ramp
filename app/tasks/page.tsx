@@ -24,13 +24,15 @@ function fmtD(d?: string) {
 }
 
 // ───────────────────────── Task modal ─────────────────────────
-function TaskModal({ goal, initial, onClose }: { goal: Goal; initial?: Task; onClose: () => void }) {
+function TaskModal({ goal, initial, weeks, onClose }: { goal: Goal; initial?: Task; weeks: string[]; onClose: () => void }) {
   const [f, setF] = useState<Partial<Task>>({
     task: '', notes: '', priority: 'High', week: '', due: '',
     phaseId: initial?.phaseId || (initial && SEED_PHASE_IDS[initial.phase]) || goal.phases[0]?.id,
     ...initial,
   });
   const upd = (p: Partial<Task>) => setF(v => ({ ...v, ...p }));
+  const weekOpts = [...new Set([...weeks, ...(f.week ? [f.week] : [])].filter(Boolean))];
+  const [newWeek, setNewWeek] = useState(false);
 
   const save = () => {
     if (!f.task?.trim()) return;
@@ -67,9 +69,26 @@ function TaskModal({ goal, initial, onClose }: { goal: Goal; initial?: Task; onC
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px', gap: 14 }}>
-          <div><label className="form-label">Week / group</label><input className="form-input" placeholder="e.g. Week 6 — First Outreach" value={f.week || ''} onChange={e => upd({ week: e.target.value })} /></div>
+          <div>
+            <label className="form-label">Week / group</label>
+            {newWeek ? (
+              <input className="form-input" autoFocus placeholder="e.g. Week 6 — First Outreach" value={f.week || ''} onChange={e => upd({ week: e.target.value })} />
+            ) : (
+              <select className="form-select" value={f.week && weekOpts.includes(f.week) ? f.week : ''} onChange={e => {
+                if (e.target.value === '__new__') { setNewWeek(true); upd({ week: '' }); }
+                else upd({ week: e.target.value });
+              }}>
+                <option value="">Unassigned</option>
+                {weekOpts.map(w => <option key={w} value={w}>{w}</option>)}
+                <option value="__new__">＋ New week…</option>
+              </select>
+            )}
+          </div>
           <div><label className="form-label" style={{ color: 'var(--accent-ink)' }}>Due → calendar</label><input className="form-input" type="date" value={f.due || ''} onChange={e => upd({ due: e.target.value })} /></div>
         </div>
+        {newWeek && (
+          <button type="button" onClick={() => setNewWeek(false)} style={{ alignSelf: 'flex-start', marginTop: -6, padding: 0, border: 'none', background: 'none', color: 'var(--muted-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>← Choose an existing week</button>
+        )}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
           <button onClick={onClose} style={cancelBtn}>Cancel</button>
           <button onClick={save} className="coral-btn" style={{ height: 44, padding: '0 24px', fontSize: 14, borderRadius: 12 }}>{initial ? 'Save changes' : 'Add task'}</button>
@@ -389,7 +408,7 @@ export default function TasksPage() {
         </div>
       )}
 
-      {(addOpen || editTask) && <TaskModal goal={goal} initial={editTask || undefined} onClose={() => { setAddOpen(false); setEditTask(null); refresh(); setTick(x => x + 1); }} />}
+      {(addOpen || editTask) && <TaskModal goal={goal} initial={editTask || undefined} weeks={[...new Set(all.map(t => t.week).filter(Boolean))]} onClose={() => { setAddOpen(false); setEditTask(null); refresh(); setTick(x => x + 1); }} />}
       {goalModal && <GoalModal initial={goalModal.mode === 'edit' ? goal : undefined} onClose={() => { setGoalModal(null); refresh(); }} onDelete={() => { deleteGoal(goal.id); setGoalId(''); setGoalModal(null); refresh(); }} />}
       {phaseOpen && <PhaseEditor goal={goal} onClose={() => { setPhaseOpen(false); refresh(); }} />}
     </div>
