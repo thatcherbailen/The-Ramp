@@ -161,6 +161,15 @@ export interface Reading {
   status: ReadStatus;
 }
 
+export interface Note {
+  id: string;
+  title: string;
+  body: string;
+  tag: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface NewsItem {
   id: string;
   title: string;
@@ -188,12 +197,16 @@ export interface Settings {
   targetCompanies: string;
   newsCategories: string[];
   darkMode: boolean;
+  nightModeEnabled?: boolean;
+  nightModeStart?: string;
+  nightModeEnd?: string;
   defaultScreen: string;
   compactDensity: boolean;
   enableMorningBriefing: boolean;
   enableCallBlock: boolean;
   enableFollowupNudge: boolean;
   enableDailyReadingPick: boolean;
+  enabledFeatures?: Record<string, boolean>;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -206,6 +219,9 @@ export const DEFAULT_SETTINGS: Settings = {
   targetCompanies: 'Cloudflare, Datadog, Snowflake, HubSpot, Salesforce',
   newsCategories: ['AI & ML', 'SaaS', 'Sales Tech', 'Cloud', 'CyberSecurity'],
   darkMode: false,
+  nightModeEnabled: false,
+  nightModeStart: '20:00',
+  nightModeEnd: '07:00',
   defaultScreen: 'today',
   compactDensity: false,
   enableMorningBriefing: true,

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     title: "The Ramp",
   },
   icons: {
-    icon: "/icon-192.png",
+    icon: "/icon.svg",
     apple: "/icon-180.png",
   },
 };

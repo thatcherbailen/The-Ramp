@@ -1,32 +1,48 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { RampMark } from './Logo';
+import { useState, useEffect } from 'react';
+import { getSettings } from '@/lib/store';
+import { isFeatureEnabled } from '@/lib/features';
 
 const NAV = [
   { group: 'MAIN', items: [
     { href: '/', label: 'Today' },
     { href: '/calendar', label: 'Calendar' },
     { href: '/tasks', label: 'Task Tracker' },
+    { href: '/notes', label: 'Notes', key: 'notes' },
   ]},
   { group: 'PIPELINE', items: [
-    { href: '/calls', label: 'Call Log' },
-    { href: '/jobs', label: 'Job Tracker' },
-    { href: '/networking', label: 'Networking' },
+    { href: '/calls', label: 'Call Log', key: 'calls' },
+    { href: '/jobs', label: 'Job Tracker', key: 'jobs' },
+    { href: '/networking', label: 'Networking', key: 'networking' },
   ]},
   { group: 'PREP', items: [
-    { href: '/stories', label: 'Story Bank' },
-    { href: '/prep', label: 'Interview Prep' },
-    { href: '/objections', label: 'Objection Drill' },
+    { href: '/stories', label: 'Story Bank', key: 'stories' },
+    { href: '/prep', label: 'Interview Prep', key: 'prep' },
+    { href: '/objections', label: 'Objection Drill', key: 'objections' },
   ]},
   { group: 'LEARN', items: [
-    { href: '/news', label: 'Tech News' },
-    { href: '/reading', label: 'Reading List' },
+    { href: '/news', label: 'Tech News', key: 'news' },
+    { href: '/reading', label: 'Reading List', key: 'reading' },
   ]},
 ];
 
 export default function Sidebar({ onSettings, onProfile }: { onSettings: () => void; onProfile: () => void }) {
   const pathname = usePathname();
+  const [enabled, setEnabled] = useState<Record<string, boolean> | undefined>(undefined);
+
+  useEffect(() => {
+    const refresh = () => setEnabled(getSettings().enabledFeatures);
+    refresh();
+    window.addEventListener('scc:profile-updated', refresh);
+    return () => window.removeEventListener('scc:profile-updated', refresh);
+  }, []);
+
+  const sections = NAV.map(section => ({
+    ...section,
+    items: section.items.filter(item => !item.key || isFeatureEnabled(enabled, item.key)),
+  })).filter(section => section.items.length > 0);
 
   return (
     <div style={{
@@ -43,15 +59,12 @@ export default function Sidebar({ onSettings, onProfile }: { onSettings: () => v
       top: 0,
       overflowY: 'auto',
     }}>
-      <div style={{ padding: '0 12px 20px', display: 'flex', alignItems: 'center', gap: 11 }}>
-        <RampMark size={34} />
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 21, letterSpacing: '-.02em', lineHeight: 1 }}>The Ramp</div>
-          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', marginTop: 4 }}>SDR Prep Platform</div>
-        </div>
+      <div style={{ padding: '0 12px 20px' }}>
+        <div style={{ fontWeight: 800, fontSize: 21, letterSpacing: '-.02em' }}>The Ramp</div>
+        <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', marginTop: 3 }}>SDR Prep Platform</div>
       </div>
 
-      {NAV.map(section => (
+      {sections.map(section => (
         <div key={section.group}>
           <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted-3)', padding: '10px 12px 5px' }}>{section.group}</div>
           {section.items.map(item => {

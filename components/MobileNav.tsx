@@ -1,7 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { getSettings } from '@/lib/store';
+import { isFeatureEnabled } from '@/lib/features';
 
 // The pure essentials live in the floating bar; everything else is in the drawer.
 const PRIMARY = [
@@ -16,26 +18,40 @@ const ALL_SECTIONS = [
     { href: '/', label: 'Today' },
     { href: '/calendar', label: 'Calendar' },
     { href: '/tasks', label: 'Task Tracker' },
+    { href: '/notes', label: 'Notes', key: 'notes' },
   ]},
   { group: 'Pipeline', items: [
-    { href: '/calls', label: 'Call Log' },
-    { href: '/jobs', label: 'Job Tracker' },
-    { href: '/networking', label: 'Networking' },
+    { href: '/calls', label: 'Call Log', key: 'calls' },
+    { href: '/jobs', label: 'Job Tracker', key: 'jobs' },
+    { href: '/networking', label: 'Networking', key: 'networking' },
   ]},
   { group: 'Prep', items: [
-    { href: '/stories', label: 'Story Bank' },
-    { href: '/prep', label: 'Interview Prep' },
-    { href: '/objections', label: 'Objection Drill' },
+    { href: '/stories', label: 'Story Bank', key: 'stories' },
+    { href: '/prep', label: 'Interview Prep', key: 'prep' },
+    { href: '/objections', label: 'Objection Drill', key: 'objections' },
   ]},
   { group: 'Learn', items: [
-    { href: '/news', label: 'Tech News' },
-    { href: '/reading', label: 'Reading List' },
+    { href: '/news', label: 'Tech News', key: 'news' },
+    { href: '/reading', label: 'Reading List', key: 'reading' },
   ]},
 ];
 
 export default function MobileNav({ onSettings, onProfile }: { onSettings: () => void; onProfile: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
+  const [enabled, setEnabled] = useState<Record<string, boolean> | undefined>(undefined);
+
+  useEffect(() => {
+    const refresh = () => setEnabled(getSettings().enabledFeatures);
+    refresh();
+    window.addEventListener('scc:profile-updated', refresh);
+    return () => window.removeEventListener('scc:profile-updated', refresh);
+  }, []);
+
+  const sections = ALL_SECTIONS.map(section => ({
+    ...section,
+    items: section.items.filter(item => !item.key || isFeatureEnabled(enabled, item.key)),
+  })).filter(section => section.items.length > 0);
 
   return (
     <>
@@ -118,7 +134,7 @@ export default function MobileNav({ onSettings, onProfile }: { onSettings: () =>
             onClick={e => e.stopPropagation()}
           >
             <div style={{ width: 40, height: 4, background: 'var(--line)', borderRadius: 2, margin: '0 auto 16px' }} />
-            {ALL_SECTIONS.map(section => (
+            {sections.map(section => (
               <div key={section.group}>
                 <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted-3)', padding: '10px 24px 4px' }}>{section.group}</div>
                 {section.items.map(item => (

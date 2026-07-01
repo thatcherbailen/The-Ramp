@@ -317,10 +317,10 @@ export default function CalendarPage() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {d.events.map(ev => (
-                      <div key={ev.id} onClick={() => onEventClick(ev)} className="card" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 18px', cursor: 'pointer' }}>
-                        <span style={{ width: 4, height: 34, borderRadius: 4, background: catColor(ev.cat), flexShrink: 0 }} />
-                        <span style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--muted)', width: 92, flex: 'none', whiteSpace: 'nowrap' }}>{ev.time}</span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
+                      <div key={ev.id} onClick={() => onEventClick(ev)} className="card" style={{ display: 'grid', gridTemplateColumns: '4px minmax(88px,auto) 1fr', columnGap: 16, alignItems: 'center', padding: '14px 18px', cursor: 'pointer' }}>
+                        <span style={{ width: 4, height: 34, borderRadius: 4, background: catColor(ev.cat) }} />
+                        <span style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{ev.time}</span>
+                        <div style={{ minWidth: 0 }}>
                           <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-.01em' }}>{ev.title}</div>
                           <div style={{ fontSize: 12, fontWeight: 600, color: catColor(ev.cat), marginTop: 2 }}>{catLabel(ev.cat)}{ev.stored ? '' : ' · auto'}</div>
                         </div>
@@ -360,10 +360,10 @@ export default function CalendarPage() {
               {d.isToday && <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: '#F5552E', background: 'var(--accent-soft)', padding: '3px 9px', borderRadius: 999 }}>Today</span>}
             </div>
             {d.events.map(ev => (
-              <div key={ev.id} onClick={() => onEventClick(ev)} style={{ display: 'flex', gap: 12, padding: '11px 0', cursor: 'pointer' }}>
-                <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--muted)', width: 68, flex: 'none', whiteSpace: 'nowrap' }}>{ev.time}</span>
-                <span style={{ width: 4, borderRadius: 4, background: catColor(ev.cat), flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
+              <div key={ev.id} onClick={() => onEventClick(ev)} style={{ display: 'grid', gridTemplateColumns: 'minmax(58px,auto) 4px 1fr', columnGap: 12, alignItems: 'center', padding: '11px 0', cursor: 'pointer' }}>
+                <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{ev.time}</span>
+                <span style={{ width: 4, height: 32, borderRadius: 4, background: catColor(ev.cat) }} />
+                <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 14, letterSpacing: '-.01em' }}>{ev.title}</div>
                   <div style={{ fontSize: 12, fontWeight: 600, color: catColor(ev.cat), marginTop: 1 }}>{catLabel(ev.cat)}{ev.stored ? '' : ' · auto'}</div>
                 </div>

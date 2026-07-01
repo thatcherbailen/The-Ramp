@@ -1,5 +1,5 @@
 'use client';
-import { Task, Job, Call, Story, PrepCard, Objection, Contact, CalendarEvent, Reading, NewsItem, Settings, Goal, OutreachEntry, RoofingWeek, DEFAULT_SETTINGS } from './types';
+import { Task, Job, Call, Story, PrepCard, Objection, Contact, CalendarEvent, Reading, NewsItem, Settings, Goal, OutreachEntry, RoofingWeek, Note, DEFAULT_SETTINGS } from './types';
 import { DEFAULT_GOAL, SEED_READING } from './seedData';
 
 const KEYS = {
@@ -173,6 +173,15 @@ export function getNews(): NewsItem[] { return load(KEYS.news, []); }
 export function setNews(items: NewsItem[]) { save(KEYS.news, items); }
 export function getNewsStamp(): number { return load(KEYS.newsStamp, 0); }
 export function setNewsStamp(n: number) { save(KEYS.newsStamp, n); }
+
+// ── Notes ──────────────────────────────────────────────────────────
+export function getNotes(): Note[] { return load('scc_notes', []); }
+export function saveNote(n: Note) {
+  const arr = getNotes(); const idx = arr.findIndex(x => x.id === n.id);
+  if (idx >= 0) arr[idx] = n; else arr.unshift(n);
+  save('scc_notes', arr);
+}
+export function deleteNote(id: string) { save('scc_notes', getNotes().filter(x => x.id !== id)); }
 
 // ── Settings ──────────────────────────────────────────────────────────
 export function getSettings(): Settings { return { ...DEFAULT_SETTINGS, ...load(KEYS.settings, {}) }; }

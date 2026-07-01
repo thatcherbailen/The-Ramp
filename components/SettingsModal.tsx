@@ -3,8 +3,9 @@ import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { getSettings, saveSettings } from '@/lib/store';
 import { Settings, DEFAULT_SETTINGS } from '@/lib/types';
+import { OPTIONAL_FEATURES, PRESETS, isFeatureEnabled, presetToEnabledMap } from '@/lib/features';
 
-const TABS = ['Profile', 'Goals', 'AI Feed', 'Nudges', 'Display', 'Data'];
+const TABS = ['Profile', 'Goals', 'AI Feed', 'Nudges', 'Display', 'Personalise', 'Data'];
 
 const NEWS_CATS = ['AI & ML', 'SaaS', 'Sales Tech', 'Cloud', 'CyberSecurity', 'Startups', 'Developer Tools'];
 
@@ -18,7 +19,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
     const next = { ...s, ...patch };
     setS(next);
     saveSettings(next);
-    if ('darkMode' in patch) window.dispatchEvent(new Event('scc:profile-updated'));
+    window.dispatchEvent(new Event('scc:profile-updated'));
   };
 
   const toggleCat = (cat: string) => {
@@ -168,15 +169,41 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
       {tab === 'Display' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', border: '1px solid var(--line)', borderRadius: 14 }}>
-            <input type="checkbox" id="darkMode" checked={s.darkMode}
+            <input type="checkbox" id="darkMode" checked={s.darkMode} disabled={s.nightModeEnabled}
               onChange={e => update({ darkMode: e.target.checked })}
               style={{ accentColor: '#F5552E', width: 16, height: 16 }}
             />
             <div>
-              <label htmlFor="darkMode" style={{ fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Dark mode</label>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Invert the colour scheme — reload to apply</div>
+              <label htmlFor="darkMode" style={{ fontSize: 14, fontWeight: 700, cursor: s.nightModeEnabled ? 'default' : 'pointer', opacity: s.nightModeEnabled ? .5 : 1 }}>Dark mode</label>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, opacity: s.nightModeEnabled ? .5 : 1 }}>{s.nightModeEnabled ? 'Controlled by the night-mode schedule below' : 'Switches the whole app to a dark theme instantly'}</div>
             </div>
           </div>
+
+          <div style={{ padding: '14px 16px', border: '1px solid var(--line)', borderRadius: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <input type="checkbox" id="nightMode" checked={!!s.nightModeEnabled}
+                onChange={e => update({ nightModeEnabled: e.target.checked })}
+                style={{ accentColor: '#F5552E', width: 16, height: 16, flexShrink: 0 }}
+              />
+              <div>
+                <label htmlFor="nightMode" style={{ fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Schedule night mode</label>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Automatically switch to dark mode at a set time, and back at another</div>
+              </div>
+            </div>
+            {s.nightModeEnabled && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--line-3)' }}>
+                <div>
+                  <label className="form-label">Turns on at</label>
+                  <input className="form-input" type="time" value={s.nightModeStart || '20:00'} onChange={e => update({ nightModeStart: e.target.value })} />
+                </div>
+                <div>
+                  <label className="form-label">Turns off at</label>
+                  <input className="form-input" type="time" value={s.nightModeEnd || '07:00'} onChange={e => update({ nightModeEnd: e.target.value })} />
+                </div>
+              </div>
+            )}
+          </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', border: '1px solid var(--line)', borderRadius: 14 }}>
             <input type="checkbox" id="compact" checked={s.compactDensity}
               onChange={e => update({ compactDensity: e.target.checked })}
@@ -200,6 +227,44 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               <option value="/calls">Call Log</option>
               <option value="/jobs">Job Tracker</option>
             </select>
+          </div>
+        </div>
+      )}
+
+      {tab === 'Personalise' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <div style={{ fontSize: 13, color: 'var(--ink-2b)', lineHeight: 1.5 }}>
+            Show only what you actually need. Whether you&apos;re breaking into sales, prepping for interviews, or already selling and just want to log your day — pick a starting point or toggle features individually. Today, Calendar and Task Tracker always stay on.
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {Object.entries(PRESETS).map(([key, p]) => (
+              <button
+                key={key}
+                onClick={() => update({ enabledFeatures: presetToEnabledMap(p.enabled) })}
+                style={{ flex: '1 1 150px', textAlign: 'left', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--line-2)', background: 'var(--card-2)', cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                <div style={{ fontSize: 13, fontWeight: 700 }}>{p.label}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 3, lineHeight: 1.4 }}>{p.desc}</div>
+              </button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {OPTIONAL_FEATURES.map(f => {
+              const on = isFeatureEnabled(s.enabledFeatures, f.key);
+              return (
+                <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', border: '1px solid var(--line)', borderRadius: 14 }}>
+                  <input type="checkbox" checked={on}
+                    onChange={e => update({ enabledFeatures: { ...(s.enabledFeatures || {}), [f.key]: e.target.checked } })}
+                    style={{ accentColor: '#F5552E', width: 16, height: 16, flexShrink: 0 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700 }}>{f.label}</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{f.desc}</div>
+                  </div>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted-2)' }}>{f.group}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

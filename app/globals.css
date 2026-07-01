@@ -2,6 +2,11 @@
 
 @import "tailwindcss";
 
+@keyframes splash-pop {
+  0% { opacity: 0; transform: scale(.72); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
 :root {
   --bg: #FFFFFF;
   --card: #FFFFFF;
