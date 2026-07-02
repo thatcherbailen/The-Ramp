@@ -25,10 +25,10 @@ const ALL_SECTIONS: { group: string; items: { href: string; label: string; key?:
     { href: '/networking', label: 'Networking', key: 'networking' },
   ]},
   { group: 'Prep', items: [
-    { href: '/notes', label: 'Notes', key: 'notes' },
     { href: '/stories', label: 'Story Bank', key: 'stories' },
     { href: '/prep', label: 'Interview Prep', key: 'prep' },
     { href: '/objections', label: 'Objection Drill', key: 'objections' },
+    { href: '/notes', label: 'Notes', key: 'notes' },
   ]},
   { group: 'Learn', items: [
     { href: '/news', label: 'Tech News', key: 'news' },

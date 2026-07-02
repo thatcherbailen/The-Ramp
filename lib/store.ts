@@ -1,6 +1,7 @@
 'use client';
 import { Task, Job, Call, Story, PrepCard, Objection, Contact, CalendarEvent, Reading, NewsItem, Settings, Goal, OutreachEntry, RoofingWeek, Note, DEFAULT_SETTINGS } from './types';
 import { DEFAULT_GOAL, SEED_READING } from './seedData';
+import { supabase } from './supabase';
 
 const KEYS = {
   tasks: 'scc_tasks_done',
@@ -20,19 +21,64 @@ const KEYS = {
   settings: 'scc_settings',
 };
 
-function load<T>(key: string, fallback: T): T {
-  if (typeof window === 'undefined') return fallback;
-  try {
-    const v = localStorage.getItem(key);
-    return v ? JSON.parse(v) : fallback;
-  } catch {
-    return fallback;
+// Every key ever written under the old browser-only localStorage scheme —
+// used once per account to seed Supabase from whatever's already sitting
+// in this browser, the first time that account syncs.
+const ALL_KEYS = [
+  ...Object.values(KEYS),
+  'scc_goals', 'scc_outreach', 'scc_roofing', 'scc_event_cats', 'scc_notes',
+];
+
+// Data now lives in Supabase (table `user_data`, one row per key, scoped to
+// the signed-in user by RLS) instead of localStorage, so it follows the
+// account across devices. `cache` mirrors that table in memory so the rest
+// of this file's get/save functions can stay perfectly synchronous — call
+// initStore() once after sign-in, before anything else in the app reads.
+let cache: Record<string, unknown> | null = null;
+let currentUserId: string | null = null;
+
+export async function initStore(userId: string): Promise<void> {
+  const { data, error } = await supabase.from('user_data').select('key,value').eq('user_id', userId);
+  if (error) throw error;
+  cache = {};
+  (data || []).forEach(row => { cache![row.key] = row.value; });
+  currentUserId = userId;
+
+  if (!data || data.length === 0) {
+    // First sync for this account — bring in anything already sitting in
+    // this browser's local storage so nothing gets lost in the switch.
+    const rows: { user_id: string; key: string; value: unknown }[] = [];
+    if (typeof window !== 'undefined') {
+      for (const key of ALL_KEYS) {
+        const raw = localStorage.getItem(key);
+        if (raw == null) continue;
+        try {
+          const value = JSON.parse(raw);
+          cache[key] = value;
+          rows.push({ user_id: userId, key, value });
+        } catch { /* skip unparseable */ }
+      }
+    }
+    if (rows.length) await supabase.from('user_data').upsert(rows);
   }
 }
 
+export function clearStore(): void {
+  cache = null;
+  currentUserId = null;
+}
+
+function load<T>(key: string, fallback: T): T {
+  if (!cache) return fallback;
+  return key in cache ? (cache[key] as T) : fallback;
+}
+
 function save(key: string, val: unknown) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(key, JSON.stringify(val));
+  if (!cache || !currentUserId) return;
+  cache[key] = val;
+  supabase.from('user_data').upsert({ user_id: currentUserId, key, value: val }).then(({ error }) => {
+    if (error) console.error(`Failed to save "${key}"`, error);
+  });
 }
 
 // ── Tasks ──────────────────────────────────────────────────────────

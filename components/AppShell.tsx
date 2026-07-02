@@ -5,6 +5,7 @@ import SettingsModal from './SettingsModal';
 import ProfileModal from './ProfileModal';
 import MobileNav from './MobileNav';
 import Splash from './Splash';
+import AuthGate from './AuthGate';
 import { getSettings } from '@/lib/store';
 
 // Is "now" inside the [start,end) night window? Handles windows that wrap
@@ -52,31 +53,33 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Splash />
-      <div style={{ display: 'flex', minHeight: '100vh' }}>
-        {/* Desktop sidebar */}
-        <div className="hidden md:block" style={{ flexShrink: 0 }}>
-          <Sidebar onSettings={() => setSettingsOpen(true)} onProfile={() => setProfileOpen(true)} />
+      <AuthGate>
+        <div style={{ display: 'flex', minHeight: '100vh' }}>
+          {/* Desktop sidebar */}
+          <div className="hidden md:block" style={{ flexShrink: 0 }}>
+            <Sidebar onSettings={() => setSettingsOpen(true)} onProfile={() => setProfileOpen(true)} />
+          </div>
+
+          {/* Main content */}
+          <main className="main-content" style={{
+            flex: 1,
+            minWidth: 0,
+            padding: '30px 36px 40px',
+            paddingBottom: '80px',
+            overflowX: 'hidden',
+          }}>
+            {children}
+          </main>
+
+          {/* Mobile bottom nav */}
+          <div className="block md:hidden">
+            <MobileNav onSettings={() => setSettingsOpen(true)} onProfile={() => setProfileOpen(true)} />
+          </div>
+
+          {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+          {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} />}
         </div>
-
-        {/* Main content */}
-        <main className="main-content" style={{
-          flex: 1,
-          minWidth: 0,
-          padding: '30px 36px 40px',
-          paddingBottom: '80px',
-          overflowX: 'hidden',
-        }}>
-          {children}
-        </main>
-
-        {/* Mobile bottom nav */}
-        <div className="block md:hidden">
-          <MobileNav onSettings={() => setSettingsOpen(true)} onProfile={() => setProfileOpen(true)} />
-        </div>
-
-        {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
-        {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} />}
-      </div>
+      </AuthGate>
     </>
   );
 }

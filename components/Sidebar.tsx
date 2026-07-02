@@ -17,10 +17,10 @@ const NAV: { group: string; items: { href: string; label: string; key?: string }
     { href: '/networking', label: 'Networking', key: 'networking' },
   ]},
   { group: 'PREP', items: [
-    { href: '/notes', label: 'Notes', key: 'notes' },
     { href: '/stories', label: 'Story Bank', key: 'stories' },
     { href: '/prep', label: 'Interview Prep', key: 'prep' },
     { href: '/objections', label: 'Objection Drill', key: 'objections' },
+    { href: '/notes', label: 'Notes', key: 'notes' },
   ]},
   { group: 'LEARN', items: [
     { href: '/news', label: 'Tech News', key: 'news' },

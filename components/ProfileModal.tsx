@@ -3,6 +3,7 @@ import { useState } from 'react';
 import Modal from './Modal';
 import { getSettings, saveSettings } from '@/lib/store';
 import { Settings } from '@/lib/types';
+import { signOut } from '@/lib/auth';
 
 export default function ProfileModal({ onClose }: { onClose: () => void }) {
   const [s, setS] = useState<Settings>(getSettings());
@@ -11,6 +12,11 @@ export default function ProfileModal({ onClose }: { onClose: () => void }) {
   const save = () => {
     saveSettings(s);
     window.dispatchEvent(new Event('scc:profile-updated'));
+    onClose();
+  };
+
+  const logOut = async () => {
+    await signOut();
     onClose();
   };
 
@@ -89,6 +95,7 @@ export default function ProfileModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
+          <button onClick={logOut} style={{ padding: '11px 18px', borderRadius: 12, border: '1px solid #F0CFC6', background: 'var(--card)', color: '#D8431F', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, marginRight: 'auto' }}>Sign out</button>
           <button onClick={onClose} style={{ padding: '11px 22px', borderRadius: 12, border: '1px solid var(--line-2)', background: 'var(--card)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600 }}>Cancel</button>
           <button onClick={save} className="coral-btn" style={{ height: 44, padding: '0 24px', fontSize: 14, borderRadius: 12 }}>Save profile</button>
         </div>
