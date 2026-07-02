@@ -152,7 +152,7 @@ export default function TodayPage() {
         ) : (
           <div className="card" style={{ overflow: 'hidden' }}>
             {todayEvents.map((ev, i) => (
-              <div key={ev.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(92px,auto) 4px 1fr', columnGap: 18, alignItems: 'center', padding: '13px 18px', borderTop: i > 0 ? '1px solid var(--line-3)' : undefined }}>
+              <div key={ev.id} className="keep-grid" style={{ display: 'grid', gridTemplateColumns: '92px 4px 1fr', columnGap: 18, alignItems: 'center', padding: '13px 18px', borderTop: i > 0 ? '1px solid var(--line-3)' : undefined }}>
                 <span style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{ev.time}</span>
                 <span style={{ width: 4, height: 30, borderRadius: 4, background: catColor(ev.cat) }} />
                 <div style={{ minWidth: 0 }}>

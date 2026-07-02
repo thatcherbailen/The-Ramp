@@ -1,8 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
 <circle cx="500" cy="500" r="500" fill="#F5552E"/>
 <g transform="translate(230,230) scale(0.54)">
-<rect width="1000" height="1000" fill="#FFFFFF"/>
-<polygon points="772,138 0,349 0,663" fill="#F5552E"/>
-<polygon points="872,207 354,1000 674,1000" fill="#F5552E"/>
+<path d="M0,0 L1000,0 L1000,1000 L0,1000 Z M1000,0 L0,349 L0,663 Z M1000,0 L354,1000 L674,1000 Z" fill="#FFFFFF" fill-rule="evenodd"/>
 </g>
 </svg>

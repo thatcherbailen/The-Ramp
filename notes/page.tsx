@@ -87,7 +87,7 @@ export default function NotesPage() {
     <div>
       <div className="page-head" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 18 }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted)' }}>Main · Free-form notes</div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted)' }}>Prep · Free-form notes</div>
           <div className="page-title">Notes</div>
         </div>
         <div className="page-head-actions" style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
