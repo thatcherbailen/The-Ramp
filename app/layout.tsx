@@ -3,6 +3,7 @@ import "./globals.css";
 import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://theramphq.app"),
   title: "The Ramp — SDR Prep Platform",
   description: "The Ramp — SDR prep platform: calls, jobs, prep, news, calendar",
   manifest: "/manifest.webmanifest",
