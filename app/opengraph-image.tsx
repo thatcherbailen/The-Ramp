@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og';
 
-export const alt = 'The Ramp — SDR Prep Platform';
+export const alt = 'The Ramp — Sales Practice Platform';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -32,11 +32,11 @@ export default function Image() {
           </svg>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ fontSize: 76, fontWeight: 800, color: '#fff', letterSpacing: -2 }}>THE RAMP</div>
-            <div style={{ fontSize: 26, fontWeight: 500, color: 'rgba(255,255,255,.55)', marginTop: 4 }}>SDR Prep Platform</div>
+            <div style={{ fontSize: 26, fontWeight: 500, color: 'rgba(255,255,255,.55)', marginTop: 4 }}>Sales Practice Platform</div>
           </div>
         </div>
         <div style={{ fontSize: 24, fontWeight: 500, color: 'rgba(255,255,255,.7)', marginTop: 44 }}>
-          Calls · Pipeline · Interview Prep · Schedule — all in one place
+          Practice calls · Drills · Interview prep · Pipeline — all in one place
         </div>
       </div>
     ),

@@ -21,19 +21,17 @@ const KEYS = {
   settings: 'scc_settings',
 };
 
-// Every key ever written under the old browser-only localStorage scheme —
-// used once per account to seed Supabase from whatever's already sitting
-// in this browser, the first time that account syncs.
-const ALL_KEYS = [
-  ...Object.values(KEYS),
-  'scc_goals', 'scc_outreach', 'scc_roofing', 'scc_event_cats', 'scc_notes',
-];
-
-// Data now lives in Supabase (table `user_data`, one row per key, scoped to
-// the signed-in user by RLS) instead of localStorage, so it follows the
-// account across devices. `cache` mirrors that table in memory so the rest
-// of this file's get/save functions can stay perfectly synchronous — call
+// Data lives in Supabase (table `user_data`, one row per key, scoped to the
+// signed-in user by RLS) instead of localStorage, so it follows the account
+// across devices. `cache` mirrors that table in memory so the rest of this
+// file's get/save functions can stay perfectly synchronous — call
 // initStore() once after sign-in, before anything else in the app reads.
+//
+// Every account starts empty. This deliberately does NOT seed new accounts
+// from whatever's sitting in the browser's old localStorage — that one-time
+// migration was only for carrying over pre-account data during the initial
+// cutover, and leaving it in would leak that data into every new signup
+// made from the same browser (e.g. while testing).
 let cache: Record<string, unknown> | null = null;
 let currentUserId: string | null = null;
 
@@ -43,24 +41,6 @@ export async function initStore(userId: string): Promise<void> {
   cache = {};
   (data || []).forEach(row => { cache![row.key] = row.value; });
   currentUserId = userId;
-
-  if (!data || data.length === 0) {
-    // First sync for this account — bring in anything already sitting in
-    // this browser's local storage so nothing gets lost in the switch.
-    const rows: { user_id: string; key: string; value: unknown }[] = [];
-    if (typeof window !== 'undefined') {
-      for (const key of ALL_KEYS) {
-        const raw = localStorage.getItem(key);
-        if (raw == null) continue;
-        try {
-          const value = JSON.parse(raw);
-          cache[key] = value;
-          rows.push({ user_id: userId, key, value });
-        } catch { /* skip unparseable */ }
-      }
-    }
-    if (rows.length) await supabase.from('user_data').upsert(rows);
-  }
 }
 
 export function clearStore(): void {
@@ -232,5 +212,118 @@ export function deleteNote(id: string) { save('scc_notes', getNotes().filter(x =
 // ── Settings ──────────────────────────────────────────────────────────
 export function getSettings(): Settings { return { ...DEFAULT_SETTINGS, ...load(KEYS.settings, {}) }; }
 export function saveSettings(s: Settings) { save(KEYS.settings, s); }
+
+// ── Practice streak ──────────────────────────────────────────────────
+// One entry per calendar day (YYYY-MM-DD) a drill (objection or story) was
+// completed. Dedup'd on write so repeated reps in a day don't double count.
+const PRACTICE_KEY = 'scc_practice_log';
+const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+
+export function getPracticeDates(): string[] { return load(PRACTICE_KEY, []); }
+
+export function logPracticeToday(): void {
+  const today = dayKey(new Date());
+  const dates = getPracticeDates();
+  if (!dates.includes(today)) save(PRACTICE_KEY, [...dates, today]);
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('scc:practice-logged'));
+}
+
+export interface Streak { current: number; longest: number; today: boolean }
+
+export function getStreak(): Streak {
+  const dates = new Set(getPracticeDates());
+  const today = dayKey(new Date());
+  const hasToday = dates.has(today);
+
+  let current = 0;
+  const cursor = new Date();
+  if (!hasToday) cursor.setDate(cursor.getDate() - 1);
+  while (dates.has(dayKey(cursor))) {
+    current++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  let longest = 0, run = 0, prevDay: Date | null = null;
+  for (const key of [...dates].sort()) {
+    const d = new Date(key + 'T00:00:00');
+    if (prevDay) {
+      const expected = new Date(prevDay);
+      expected.setDate(expected.getDate() + 1);
+      run = dayKey(expected) === key ? run + 1 : 1;
+    } else {
+      run = 1;
+    }
+    longest = Math.max(longest, run);
+    prevDay = d;
+  }
+
+  return { current, longest, today: hasToday };
+}
+
+// ── Hidden seed items ────────────────────────────────────────────────
+// The built-in example content (stories, prep cards, objections) can be
+// deleted per-user; editing one saves a user copy under the same id, which
+// shadows the seed version. This tracks the deletions.
+const SEED_HIDDEN_KEY = 'scc_seed_hidden';
+export function getSeedHidden(kind: string): Set<string> {
+  const all = load<Record<string, string[]>>(SEED_HIDDEN_KEY, {});
+  return new Set(all[kind] || []);
+}
+export function hideSeedItem(kind: string, id: string) {
+  const all = load<Record<string, string[]>>(SEED_HIDDEN_KEY, {});
+  all[kind] = [...new Set([...(all[kind] || []), id])];
+  save(SEED_HIDDEN_KEY, all);
+}
+
+// Merge built-in examples with the user's own items: user items with the
+// same id replace ("shadow") the seed version, hidden seeds are dropped.
+export function mergeSeed<T extends { id: string }>(kind: string, seed: T[], user: T[]): T[] {
+  const hidden = getSeedHidden(kind);
+  const userIds = new Set(user.map(u => u.id));
+  return [...seed.filter(s => !hidden.has(s.id) && !userIds.has(s.id)), ...user];
+}
+
+// ── Drill results (objection drills + mock calls) ────────────────────
+export interface DrillResult { id: string; date: string; kind: 'objection' | 'mockcall'; score: number }
+const DRILL_RESULTS_KEY = 'scc_drill_results';
+export function getDrillResults(): DrillResult[] { return load(DRILL_RESULTS_KEY, []); }
+export function logDrillResult(kind: DrillResult['kind'], score: number) {
+  const arr = getDrillResults();
+  arr.push({ id: uid(), date: new Date().toISOString().slice(0, 10), kind, score });
+  save(DRILL_RESULTS_KEY, arr.slice(-200));
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('scc:practice-logged'));
+}
+
+// ── Readiness score ──────────────────────────────────────────────────
+// One 0-100 number tying practice together: mock call scores (40%),
+// objection drill scores (30%), consistency over the last 14 days (20%),
+// story bank depth (10%). Components with no data contribute 0, so the
+// score starts low and grows with real practice.
+export interface Readiness {
+  score: number;
+  mockCalls: number;   // avg of last 5, 0 if none
+  objections: number;  // avg of last 10, 0 if none
+  consistency: number; // practice days in last 14 / 7, capped at 100
+  stories: number;     // stories saved / 5, capped at 100
+}
+
+export function getReadiness(storyCount: number): Readiness {
+  const results = getDrillResults();
+  const mock = results.filter(r => r.kind === 'mockcall').slice(-5);
+  const obj = results.filter(r => r.kind === 'objection').slice(-10);
+  const mockCalls = mock.length ? Math.round(mock.reduce((s, r) => s + r.score, 0) / mock.length) : 0;
+  const objections = obj.length ? Math.round(obj.reduce((s, r) => s + r.score, 0) / obj.length) : 0;
+
+  const twoWeeksAgo = new Date();
+  twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+  const cutoff = dayKey(twoWeeksAgo);
+  const recentDays = getPracticeDates().filter(d => d >= cutoff).length;
+  const consistency = Math.min(100, Math.round((recentDays / 7) * 100));
+
+  const stories = Math.min(100, Math.round((storyCount / 5) * 100));
+
+  const score = Math.round(mockCalls * 0.4 + objections * 0.3 + consistency * 0.2 + stories * 0.1);
+  return { score, mockCalls, objections, consistency, stories };
+}
 
 export function uid(): string { return Date.now().toString(36) + Math.random().toString(36).slice(2); }

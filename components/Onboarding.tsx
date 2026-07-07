@@ -4,6 +4,7 @@ import { RampMark } from './Logo';
 import { PRESETS, presetToEnabledMap } from '@/lib/features';
 import { completeOnboarding } from '@/lib/auth';
 import { getSettings, saveSettings } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 
 const STEPS = ['Welcome', 'Focus', 'Ready'] as const;
 
@@ -19,6 +20,17 @@ export default function Onboarding({ userId, onDone }: { userId: string; onDone:
       const enabled = presetToEnabledMap(PRESETS[preset].enabled);
       await completeOnboarding(userId, { user_name: name.trim() || 'there', preset, enabled_features: enabled });
       saveSettings({ ...getSettings(), userName: name.trim() || 'there', enabledFeatures: enabled });
+      // Fire-and-forget welcome email — never blocks entering the app
+      supabase.auth.getUser().then(({ data }) => {
+        const email = data.user?.email;
+        if (email) {
+          fetch('/api/welcome-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, name: name.trim() }),
+          }).catch(() => {});
+        }
+      });
       onDone();
     } finally {
       setBusy(false);

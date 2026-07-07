@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import Modal from '@/components/Modal';
 import DotMenu from '@/components/DotMenu';
-import { getPrepCards, savePrepCard, deletePrepCard, uid } from '@/lib/store';
+import { getPrepCards, savePrepCard, deletePrepCard, uid, mergeSeed, hideSeedItem } from '@/lib/store';
 import { PrepCard } from '@/lib/types';
 import { SEED_PREP } from '@/lib/seedData';
 
@@ -50,7 +50,7 @@ export default function PrepPage() {
   const load = () => setUserCards(getPrepCards());
   useEffect(() => { load(); }, []);
 
-  const allCards = [...SEED_PREP, ...userCards];
+  const allCards = mergeSeed('prep', SEED_PREP, userCards);
 
   const toggleFlip = (id: string) => {
     setFlipped(prev => {
@@ -96,14 +96,12 @@ export default function PrepPage() {
                 <span style={{ fontSize:12, fontWeight:500, color: isFlipped ? 'rgba(255,255,255,.5)' : 'var(--muted-2)', marginLeft:'auto' }}>
                   {isFlipped ? 'Tap to see question' : 'Tap to reveal answer'}
                 </span>
-                {isUser && (
-                  <div onClick={e => e.stopPropagation()}>
-                    <DotMenu actions={[
-                      { label:'Edit', onClick:() => setEditCard(c) },
-                      { label:'Delete', onClick:() => { deletePrepCard(c.id); load(); }, danger:true },
-                    ]} />
-                  </div>
-                )}
+                <div onClick={e => e.stopPropagation()}>
+                  <DotMenu actions={[
+                    { label:'Edit', onClick:() => setEditCard(c) },
+                    { label:'Delete', onClick:() => { isUser ? deletePrepCard(c.id) : hideSeedItem('prep', c.id); load(); }, danger:true },
+                  ]} />
+                </div>
               </div>
               {!isFlipped ? (
                 <div style={{ fontWeight:800, fontSize:21, lineHeight:1.25, letterSpacing:'-.02em' }}>{c.q}</div>

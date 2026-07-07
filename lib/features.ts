@@ -13,6 +13,7 @@ export const OPTIONAL_FEATURES: FeatureDef[] = [
   { key: 'calls', href: '/calls', label: 'Call Log', group: 'Pipeline', desc: 'Log dials, track appointment rate and revenue' },
   { key: 'jobs', href: '/jobs', label: 'Job Tracker', group: 'Pipeline', desc: 'Pipeline, targets, outreach and applications' },
   { key: 'networking', href: '/networking', label: 'Networking', group: 'Pipeline', desc: 'Contacts, warm intros and follow-ups' },
+  { key: 'roleplay', href: '/roleplay', label: 'Mock Call', group: 'Prep', desc: 'AI roleplay — practice live calls and get scored' },
   { key: 'stories', href: '/stories', label: 'Story Bank', group: 'Prep', desc: 'STAR stories for interviews' },
   { key: 'prep', href: '/prep', label: 'Interview Prep', group: 'Prep', desc: 'Flashcard question drills' },
   { key: 'objections', href: '/objections', label: 'Objection Drill', group: 'Prep', desc: 'Objection-handling practice' },
@@ -34,12 +35,12 @@ export const PRESETS: Record<string, Preset> = {
   jobseeker: {
     label: 'Getting into sales',
     desc: 'Job-search focus — pipeline, prep and networking',
-    enabled: ['jobs', 'networking', 'stories', 'prep', 'objections', 'news', 'reading', 'notes'],
+    enabled: ['jobs', 'networking', 'roleplay', 'stories', 'prep', 'objections', 'news', 'reading', 'notes'],
   },
   active: {
     label: 'Already in sales',
     desc: 'Day-to-day selling — calls, notes and pipeline',
-    enabled: ['calls', 'notes', 'jobs'],
+    enabled: ['calls', 'notes', 'jobs', 'roleplay', 'objections'],
   },
   all: {
     label: 'Everything',

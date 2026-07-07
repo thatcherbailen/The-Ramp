@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation';
 import { getSettings, getCalls, getJobs, getCustomTasks, getTaskDone, getTaskDeletes, getTaskEdits, getStories, getContacts, getEvents } from '@/lib/store';
 import { SEED_TASKS, SEED_STORIES } from '@/lib/seedData';
 import LogCallModal from '@/components/LogCallModal';
+import StreakBadge from '@/components/StreakBadge';
+import ReadinessCard from '@/components/ReadinessCard';
 import { aggregateEvents, catColor, catLabel } from './calendar/page';
 
 type DayEvent = { id: string; title: string; cat: string; time: string };
@@ -35,7 +37,7 @@ type Card = {
 export default function TodayPage() {
   const router = useRouter();
   const [logOpen, setLogOpen] = useState(false);
-  const [userName, setUserName] = useState('Bailen');
+  const [userName, setUserName] = useState('there');
   const [cards, setCards] = useState<Card[]>([]);
   const [todayEvents, setTodayEvents] = useState<DayEvent[]>([]);
 
@@ -77,8 +79,9 @@ export default function TodayPage() {
       { type: 'module', tone: 'tint',  label: `${openTasks} open`, name: 'Task Tracker',     href: '/tasks',      minH: 118 },
       { type: 'stat',   tone: 'grey',  big: apptsBooked,          name: 'Appts booked',      href: '/calls',      minH: 140 },
       { type: 'module', tone: 'white', label: `${upcomingInterviews} upcoming`, name: 'Interview Prep', href: '/prep', minH: 150 },
-      { type: 'module', tone: 'coral', label: 'Practice',         name: 'Objection Drill',   href: '/objections', minH: 118 },
-      { type: 'module', tone: 'grey',  label: `${storiesCount} stories`, name: 'Story Bank', href: '/stories',    minH: 128 },
+      { type: 'module', tone: 'coral', label: 'AI roleplay',      name: 'Mock Call',         href: '/roleplay',   minH: 150 },
+      { type: 'module', tone: 'grey',  label: 'Practice',         name: 'Objection Drill',   href: '/objections', minH: 118 },
+      { type: 'module', tone: 'white', label: `${storiesCount} stories`, name: 'Story Bank', href: '/stories',    minH: 128 },
       { type: 'module', tone: 'tint',  label: 'Reading List',     name: 'Reading List',      href: '/reading',    minH: 150 },
     ]);
 
@@ -109,6 +112,11 @@ export default function TodayPage() {
             <PhoneIcon />+ Log call
           </button>
         </div>
+      </div>
+
+      <div className="grid-2up" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14, marginBottom: 20, alignItems: 'stretch' }}>
+        <ReadinessCard />
+        <StreakBadge />
       </div>
 
       <div className="scc-mason">

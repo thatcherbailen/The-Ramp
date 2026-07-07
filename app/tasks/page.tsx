@@ -254,7 +254,7 @@ export default function TasksPage() {
       {/* Header */}
       <div className="page-head" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted)' }}>Main · SDR roadmap</div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted)' }}>Main · Your roadmap</div>
           <div className="page-title">Task Tracker</div>
         </div>
         <div className="page-head-actions" style={{ display: 'flex', gap: 10 }}>

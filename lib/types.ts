@@ -210,13 +210,13 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  userName: 'Bailen',
-  targetRole: 'SDR / BDR',
-  city: 'Sydney',
-  dailyCallGoal: 60,
+  userName: 'there',
+  targetRole: 'Sales',
+  city: '',
+  dailyCallGoal: 30,
   weekStartsMonday: true,
-  startDate: '2026-06-01',
-  targetCompanies: 'Cloudflare, Datadog, Snowflake, HubSpot, Salesforce',
+  startDate: '',
+  targetCompanies: '',
   newsCategories: ['AI & ML', 'SaaS', 'Sales Tech', 'Cloud', 'CyberSecurity'],
   darkMode: false,
   nightModeEnabled: false,

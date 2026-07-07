@@ -7,6 +7,11 @@
   100% { opacity: 1; transform: scale(1); }
 }
 
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .35; }
+}
+
 :root {
   --bg: #FFFFFF;
   --card: #FFFFFF;

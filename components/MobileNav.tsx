@@ -25,6 +25,7 @@ const ALL_SECTIONS: { group: string; items: { href: string; label: string; key?:
     { href: '/networking', label: 'Networking', key: 'networking' },
   ]},
   { group: 'Prep', items: [
+    { href: '/roleplay', label: 'Mock Call', key: 'roleplay' },
     { href: '/stories', label: 'Story Bank', key: 'stories' },
     { href: '/prep', label: 'Interview Prep', key: 'prep' },
     { href: '/objections', label: 'Objection Drill', key: 'objections' },

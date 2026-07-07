@@ -1,7 +1,7 @@
 {
-  "name": "The Ramp — SDR Prep Platform",
+  "name": "The Ramp — Sales Practice Platform",
   "short_name": "The Ramp",
-  "description": "SDR prep and sales tracking — calls, jobs, prep, news, calendar.",
+  "description": "Sales practice and tracking — calls, drills, prep, pipeline, schedule.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

@@ -2,9 +2,11 @@
 import { useState, useEffect } from 'react';
 import Modal from '@/components/Modal';
 import DotMenu from '@/components/DotMenu';
-import { getObjections, saveObjection, deleteObjection, uid } from '@/lib/store';
+import { getObjections, saveObjection, deleteObjection, uid, mergeSeed, hideSeedItem } from '@/lib/store';
 import { Objection } from '@/lib/types';
 import { SEED_OBJECTIONS } from '@/lib/seedData';
+import ObjectionDrillSession from '@/components/ObjectionDrillSession';
+import StreakBadge from '@/components/StreakBadge';
 
 const TAGS = ['Price','Competitor','Brush off','No budget','Timing','Status quo','Stakeholder','No need','Sceptical','Other'];
 
@@ -46,11 +48,12 @@ export default function ObjectionsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [editObj, setEditObj] = useState<Objection|null>(null);
   const [flipped, setFlipped] = useState<Set<string>>(new Set());
+  const [drillOpen, setDrillOpen] = useState(false);
 
   const load = () => setUserObjections(getObjections());
   useEffect(() => { load(); }, []);
 
-  const allObjections = [...SEED_OBJECTIONS, ...userObjections];
+  const allObjections = mergeSeed('objections', SEED_OBJECTIONS, userObjections);
 
   const toggleFlip = (id: string) => {
     setFlipped(prev => {
@@ -67,25 +70,32 @@ export default function ObjectionsPage() {
           <div style={{ fontSize:13, fontWeight:500, color:'var(--muted)' }}>Prep · Sales practice</div>
           <div className="page-title">Objection Drill</div>
         </div>
-        <div className="page-head-actions page-head-meta" style={{ display:'flex', alignItems:'baseline', gap:8 }}>
-          <span className="scc-num" style={{ fontWeight:300, fontSize:52, color:'#F5552E' }}>{allObjections.length}</span>
-          <span style={{ fontSize:12, fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', color:'var(--muted)' }}>drills</span>
+        <div className="page-head-actions page-head-meta" style={{ display:'flex', alignItems:'center', gap:18 }}>
+          <StreakBadge compact />
+          <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
+            <span className="scc-num" style={{ fontWeight:300, fontSize:52, color:'#F5552E' }}>{allObjections.length}</span>
+            <span style={{ fontSize:12, fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', color:'var(--muted)' }}>drills</span>
+          </div>
         </div>
       </div>
 
-      {/* Dark intro banner */}
-      <div style={{ background:'var(--fill-dark)', borderRadius:18, padding:'22px 24px', color:'#fff', marginBottom:18 }}>
-        <div style={{ fontSize:10, fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:'rgba(255,255,255,.4)', marginBottom:8 }}>Why this matters</div>
-        <div style={{ fontSize:14, color:'rgba(255,255,255,.78)', lineHeight:1.6, maxWidth:780 }}>
-          Objections aren&apos;t rejection — they&apos;re a request for more information. The reps who win are the ones who&apos;ve heard it before and have a calm, curious pivot ready. Drill these until they&apos;re automatic.
+      {/* Dark intro banner + AI drill CTA */}
+      <div style={{ background:'var(--fill-dark)', borderRadius:18, padding:'22px 24px', color:'#fff', marginBottom:18, display:'flex', alignItems:'center', justifyContent:'space-between', gap:20, flexWrap:'wrap' }}>
+        <div style={{ maxWidth:560 }}>
+          <div style={{ fontSize:10, fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:'rgba(255,255,255,.4)', marginBottom:8 }}>AI Objection Drill</div>
+          <div style={{ fontSize:14, color:'rgba(255,255,255,.78)', lineHeight:1.6 }}>
+            Objections aren&apos;t rejection — they&apos;re a request for more information. Get a real objection, type your response, and get scored against acknowledge → reframe → close.
+          </div>
         </div>
+        <button onClick={() => setDrillOpen(true)} className="coral-btn" style={{ height:48, padding:'0 26px', fontSize:14.5, borderRadius:12, flexShrink:0, boxShadow:'0 8px 22px rgba(245,85,46,.35)' }}>▶ Start AI drill</button>
       </div>
 
       {/* Drill method cards — numbered coral circles */}
-      <div className="grid-2up" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:26 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:26 }}>
         {[
           { n:'1', title:'Post-It Drill', body:'Write each objection on a Post-It. Stick them around your desk. Every time you walk past one, say your pivot out loud. Do this for 3 days until it’s automatic.' },
           { n:'2', title:'Flashcard Drill', body:'Tap any card below to flip from objection to pivot. Run through all cards daily for a week — speed and confidence follow. Add your own as new ones come up on real calls.' },
+          { n:'3', title:'AI Drill', body:'The real test — respond in your own words with no answer to peek at, and get instant, specific feedback on what worked and what to fix next time.' },
         ].map(m => (
           <div key={m.n} style={{ background:'var(--card-2)', border:'1px solid var(--line)', borderRadius:18, padding:'20px 22px', display:'flex', gap:14 }}>
             <div style={{ flexShrink:0, width:32, height:32, borderRadius:999, background:'var(--accent-soft)', color:'var(--accent-ink)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:15 }}>{m.n}</div>
@@ -120,14 +130,12 @@ export default function ObjectionsPage() {
                     {obj.tag}
                   </span>
                 )}
-                {isUser && (
-                  <div onClick={e => e.stopPropagation()} style={{ marginLeft:'auto' }}>
-                    <DotMenu actions={[
-                      { label:'Edit', onClick:() => setEditObj(obj) },
-                      { label:'Delete', onClick:() => { deleteObjection(obj.id); load(); }, danger:true },
-                    ]} />
-                  </div>
-                )}
+                <div onClick={e => e.stopPropagation()} style={{ marginLeft:'auto' }}>
+                  <DotMenu actions={[
+                    { label:'Edit', onClick:() => setEditObj(obj) },
+                    { label:'Delete', onClick:() => { isUser ? deleteObjection(obj.id) : hideSeedItem('objections', obj.id); load(); }, danger:true },
+                  ]} />
+                </div>
               </div>
               {!isFlipped ? (
                 <>
@@ -150,6 +158,10 @@ export default function ObjectionsPage() {
 
       {(addOpen || editObj) && (
         <ObjectionModal initial={editObj || undefined} onClose={() => { setAddOpen(false); setEditObj(null); load(); }} />
+      )}
+
+      {drillOpen && (
+        <ObjectionDrillSession pool={allObjections} onClose={() => setDrillOpen(false)} />
       )}
     </div>
   );

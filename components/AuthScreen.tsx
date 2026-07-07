@@ -52,15 +52,14 @@ export default function AuthScreen({ onAuthed, onSignedUpUnconfirmed }: { onAuth
             Calls, pipeline, interview prep and your whole schedule in one place — set up in a couple of minutes.
           </div>
         </div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,.4)', fontWeight: 500 }}>SDR Prep Platform</div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,.4)', fontWeight: 500 }}>Sales Practice Platform</div>
       </div>
 
       {/* Form panel */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, overflowY: 'auto' }}>
         <div style={{ width: '100%', maxWidth: 380 }}>
-          <div className="md:hidden" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 36, justifyContent: 'center' }}>
-            <RampMark size={30} />
-            <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: '.02em' }}>THE RAMP</span>
+          <div className="flex md:hidden" style={{ alignItems: 'center', marginBottom: 36, justifyContent: 'center' }}>
+            <RampMark size={52} />
           </div>
 
           <div style={{ fontWeight: 800, fontSize: 27, letterSpacing: '-.02em' }}>

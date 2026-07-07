@@ -17,6 +17,7 @@ const NAV: { group: string; items: { href: string; label: string; key?: string }
     { href: '/networking', label: 'Networking', key: 'networking' },
   ]},
   { group: 'PREP', items: [
+    { href: '/roleplay', label: 'Mock Call', key: 'roleplay' },
     { href: '/stories', label: 'Story Bank', key: 'stories' },
     { href: '/prep', label: 'Interview Prep', key: 'prep' },
     { href: '/objections', label: 'Objection Drill', key: 'objections' },
@@ -61,7 +62,7 @@ export default function Sidebar({ onSettings, onProfile }: { onSettings: () => v
     }}>
       <div style={{ padding: '0 12px 20px' }}>
         <div style={{ fontWeight: 800, fontSize: 21, letterSpacing: '-.02em' }}>The Ramp</div>
-        <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', marginTop: 3 }}>SDR Prep Platform</div>
+        <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', marginTop: 3 }}>Sales Practice Platform</div>
       </div>
 
       {sections.map(section => (
@@ -133,7 +134,7 @@ export default function Sidebar({ onSettings, onProfile }: { onSettings: () => v
           Settings
         </button>
         <div style={{ padding: '8px 12px', fontSize: 10, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--muted-3)' }}>
-          Sydney · {new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
+          {new Date().toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
         </div>
       </div>
     </div>

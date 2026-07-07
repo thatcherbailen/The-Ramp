@@ -177,7 +177,7 @@ export default function CallsPage() {
       {tab === 'stories' && (
         <div>
           <div style={{ fontSize:12, color:'var(--muted)', marginBottom:16, lineHeight:1.5, maxWidth:680 }}>
-            STAR-format stories pulled from your calls flagged as interview stories. Eight to ten polished stories puts you ahead of most SDR candidates.
+            STAR-format stories pulled from your calls flagged as interview stories. Eight to ten polished stories puts you ahead of most candidates.
           </div>
           {stories.length === 0 ? (
             <div className="card" style={{ padding:'48px 40px', textAlign:'center', color:'var(--muted)' }}>
