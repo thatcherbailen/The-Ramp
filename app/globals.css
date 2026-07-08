@@ -316,6 +316,11 @@ input[type="time"].form-input::-webkit-calendar-picker-indicator:hover { opacity
   .today-title { font-size: 46px; }
 }
 
+/* Floating "add task" button — clears the bottom on desktop, sits above the
+   floating mobile nav pill on phones. */
+.task-fab { bottom: 28px; }
+@media (max-width: 768px) { .task-fab { bottom: calc(90px + env(safe-area-inset-bottom)); } }
+
 /* Utility: hide non-essential / decorative content on phones */
 @media (max-width: 768px) { .hide-mobile { display: none !important; } }
 

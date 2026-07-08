@@ -15,6 +15,7 @@ export interface Task {
   custom?: boolean;
   goalId?: string;
   phaseId?: string;
+  createdAt?: number; // ms epoch — drives the temporary "New" badge
 }
 
 export interface OutreachEntry {

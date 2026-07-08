@@ -283,14 +283,36 @@ export function mergeSeed<T extends { id: string }>(kind: string, seed: T[], use
   return [...seed.filter(s => !hidden.has(s.id) && !userIds.has(s.id)), ...user];
 }
 
-// ── Drill results (objection drills + mock calls) ────────────────────
-export interface DrillResult { id: string; date: string; kind: 'objection' | 'mockcall'; score: number }
+// ── Drill results & logs (objection drills + mock calls) ─────────────
+// Each completed drill/call is stored with its full detail so it can be
+// shown in a history list and re-opened. The score+kind fields keep the
+// readiness score working unchanged.
+export interface DrillDetail {
+  scenario?: string;        // mock call scenario label
+  title?: string;           // short label for the list row
+  summary?: string;         // one-line verdict
+  objection?: string;       // objection drill: the prompt
+  response?: string;        // objection drill: the rep's answer
+  criteria?: { label: string; met: boolean; note: string }[];
+  transcript?: { role: 'prospect' | 'rep'; text: string }[]; // mock call
+  strengths?: string[];
+  improvements?: string[];
+}
+export interface DrillResult { id: string; ts?: number; date: string; kind: 'objection' | 'mockcall'; score: number; detail?: DrillDetail }
 const DRILL_RESULTS_KEY = 'scc_drill_results';
 export function getDrillResults(): DrillResult[] { return load(DRILL_RESULTS_KEY, []); }
-export function logDrillResult(kind: DrillResult['kind'], score: number) {
+export function logDrillResult(kind: DrillResult['kind'], score: number, detail?: DrillDetail) {
   const arr = getDrillResults();
-  arr.push({ id: uid(), date: new Date().toISOString().slice(0, 10), kind, score });
+  arr.push({ id: uid(), ts: Date.now(), date: new Date().toISOString().slice(0, 10), kind, score, detail });
   save(DRILL_RESULTS_KEY, arr.slice(-200));
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('scc:practice-logged'));
+}
+// History for a given kind, newest first.
+export function getDrillLog(kind: DrillResult['kind']): DrillResult[] {
+  return getDrillResults().filter(r => r.kind === kind).reverse();
+}
+export function deleteDrillLog(id: string) {
+  save(DRILL_RESULTS_KEY, getDrillResults().filter(r => r.id !== id));
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('scc:practice-logged'));
 }
 
@@ -324,6 +346,17 @@ export function getReadiness(storyCount: number): Readiness {
 
   const score = Math.round(mockCalls * 0.4 + objections * 0.3 + consistency * 0.2 + stories * 0.1);
   return { score, mockCalls, objections, consistency, stories };
+}
+
+// ── Dismissible UI flags (banners, tips) ─────────────────────────────
+const FLAGS_KEY = 'scc_ui_flags';
+export function isDismissed(flag: string): boolean {
+  return !!load<Record<string, boolean>>(FLAGS_KEY, {})[flag];
+}
+export function dismissFlag(flag: string) {
+  const all = load<Record<string, boolean>>(FLAGS_KEY, {});
+  all[flag] = true;
+  save(FLAGS_KEY, all);
 }
 
 export function uid(): string { return Date.now().toString(36) + Math.random().toString(36).slice(2); }

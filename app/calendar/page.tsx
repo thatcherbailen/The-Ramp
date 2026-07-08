@@ -5,6 +5,7 @@ import Modal from '@/components/Modal';
 import { getEvents, saveEvent, deleteEvent, uid, getJobs, getCalls, getContacts, getCustomTasks, getTaskDeletes, getTaskEdits, getEventCats, saveEventCat } from '@/lib/store';
 import { CalendarEvent, Task } from '@/lib/types';
 import { SEED_TASKS } from '@/lib/seedData';
+import { googleCalUrl, downloadIcs } from '@/lib/calendarExport';
 
 type ViewMode = 'agenda' | 'month';
 
@@ -122,6 +123,33 @@ function EventModal({ initial, defaultDate, onClose }: { initial?: CalendarEvent
           <label className="form-label">Notes</label>
           <textarea className="form-input" placeholder="Context, prep needed…" value={f.notes || ''} onChange={e => setF(v => ({ ...v, notes: e.target.value }))} style={{ minHeight: 64, resize: 'vertical' }} />
         </div>
+
+        {/* Export to an external calendar */}
+        {f.title?.trim() && f.date && (
+          <div style={{ borderTop: '1px solid var(--line-3)', paddingTop: 14 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>Add to your calendar</div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <a
+                href={googleCalUrl({ id: initial?.id || 'new', title: f.title!, date: f.date!, time: f.time || '', endTime: f.endTime || '', type: f.type || 'Other', notes: f.notes || '' })}
+                target="_blank" rel="noopener noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: 40, padding: '0 16px', borderRadius: 11, border: '1px solid var(--line-2)', background: 'var(--card)', color: 'var(--ink-2b)', textDecoration: 'none', fontSize: 13, fontWeight: 700 }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5" stroke="currentColor" strokeWidth="1.7"/><path d="M3 9h18M8 2.5v4M16 2.5v4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>
+                Add to Google Calendar
+              </a>
+              <button
+                type="button"
+                onClick={() => downloadIcs({ id: initial?.id || 'new', title: f.title!, date: f.date!, time: f.time || '', endTime: f.endTime || '', type: f.type || 'Other', notes: f.notes || '' })}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: 40, padding: '0 16px', borderRadius: 11, border: '1px solid var(--line-2)', background: 'var(--card)', color: 'var(--ink-2b)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700 }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 20h14" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                Apple / Outlook (.ics)
+              </button>
+            </div>
+            <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.5 }}>Adds this one event to your calendar. {initial ? '' : 'Save it first to keep it in The Ramp too.'}</div>
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
           {initial && (
             <button onClick={() => { deleteEvent(initial.id); onClose(); }} style={{ padding: '11px 18px', borderRadius: 12, border: '1px solid #F0CFC6', background: 'var(--card)', color: '#D8431F', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, marginRight: 'auto' }}>Delete</button>

@@ -24,6 +24,7 @@ const NAV: { group: string; items: { href: string; label: string; key?: string }
     { href: '/notes', label: 'Notes', key: 'notes' },
   ]},
   { group: 'LEARN', items: [
+    { href: '/guide', label: 'How to Use' },
     { href: '/news', label: 'Tech News', key: 'news' },
     { href: '/reading', label: 'Reading List', key: 'reading' },
   ]},

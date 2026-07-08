@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Modal from '@/components/Modal';
 import DotMenu from '@/components/DotMenu';
 import {
@@ -23,6 +23,27 @@ function fmtD(d?: string) {
   return new Date(d + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
 }
 
+// A task shows the "New" badge for 48h after creation (the day you add it
+// plus the next day), then quietly loses it. Survives reloads.
+const NEW_WINDOW_MS = 48 * 60 * 60 * 1000;
+function taskIsNew(t: Task): boolean {
+  return !!t.createdAt && (Date.now() - t.createdAt) < NEW_WINDOW_MS;
+}
+
+// Order week/group labels logically — "Week 1, Week 2, …, Week 10" by their
+// number, then any non-numbered groups alphabetically after.
+function weekSortKey(label: string): [number, string] {
+  const m = label.match(/\d+/);
+  return m ? [parseInt(m[0], 10), label] : [Number.MAX_SAFE_INTEGER, label.toLowerCase()];
+}
+function sortWeeks(labels: string[]): string[] {
+  return [...labels].sort((a, b) => {
+    const [na, sa] = weekSortKey(a);
+    const [nb, sb] = weekSortKey(b);
+    return na !== nb ? na - nb : sa.localeCompare(sb);
+  });
+}
+
 // ───────────────────────── Task modal ─────────────────────────
 function TaskModal({ goal, initial, weeks, onClose }: { goal: Goal; initial?: Task; weeks: string[]; onClose: () => void }) {
   const [f, setF] = useState<Partial<Task>>({
@@ -31,7 +52,7 @@ function TaskModal({ goal, initial, weeks, onClose }: { goal: Goal; initial?: Ta
     ...initial,
   });
   const upd = (p: Partial<Task>) => setF(v => ({ ...v, ...p }));
-  const weekOpts = [...new Set([...weeks, ...(f.week ? [f.week] : [])].filter(Boolean))];
+  const weekOpts = sortWeeks([...new Set([...weeks, ...(f.week ? [f.week] : [])].filter(Boolean))] as string[]);
   const [newWeek, setNewWeek] = useState(false);
 
   const save = () => {
@@ -42,8 +63,9 @@ function TaskModal({ goal, initial, weeks, onClose }: { goal: Goal; initial?: Ta
     } else {
       saveCustomTask({
         id: initial?.id || uid(), phase: initial?.phase || 'Phase 1', week: f.week || 'Added tasks',
-        priority: f.priority || 'High', task: f.task!, notes: f.notes || '', isNew: !initial, due: f.due,
+        priority: f.priority || 'High', task: f.task!, notes: f.notes || '', due: f.due,
         custom: true, goalId: goal.id, phaseId,
+        createdAt: initial?.createdAt ?? Date.now(),
       });
     }
     onClose();
@@ -182,6 +204,17 @@ export default function TasksPage() {
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [goalModal, setGoalModal] = useState<{ mode: 'new' | 'edit' } | null>(null);
   const [phaseOpen, setPhaseOpen] = useState(false);
+  const addBtnRef = useRef<HTMLButtonElement>(null);
+  const [showFab, setShowFab] = useState(false);
+
+  // Show the floating add button once the inline one scrolls out of view.
+  useEffect(() => {
+    const el = addBtnRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([e]) => setShowFab(!e.isIntersecting), { rootMargin: '0px' });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [goalId]);
 
   const refresh = useCallback(() => {
     const gs = getGoals();
@@ -230,7 +263,7 @@ export default function TasksPage() {
     .map((phase, idx) => {
       const phaseTasks = all.filter(t => phaseOf(t) === phase.id);
       const visible = phaseTasks.filter(passFilter);
-      const weeks = [...new Set(visible.map(t => t.week || 'Tasks'))];
+      const weeks = sortWeeks([...new Set(visible.map(t => t.week || 'Tasks'))]);
       const palette = PHASE_PALETTE[goal.phases.indexOf(phase) % PHASE_PALETTE.length];
       return {
         phase, idx: goal.phases.indexOf(phase), palette,
@@ -346,7 +379,7 @@ export default function TasksPage() {
           ))}
         </div>
         <button onClick={() => setShowDone(v => !v)} style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid', borderColor: showDone ? 'var(--fill-dark)' : 'var(--line-2)', background: showDone ? 'var(--fill-dark)' : 'var(--card)', color: showDone ? '#fff' : 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600 }}>✓ Completed</button>
-        <button onClick={() => setAddOpen(true)} className="coral-btn" style={{ height: 36, padding: '0 16px', fontSize: 13, borderRadius: 11 }}>+ Add task</button>
+        <button ref={addBtnRef} onClick={() => setAddOpen(true)} className="coral-btn" style={{ height: 36, padding: '0 16px', fontSize: 13, borderRadius: 11 }}>+ Add task</button>
       </div>
 
       {/* Sections */}
@@ -378,8 +411,8 @@ export default function TasksPage() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                     {wk.tasks.map(t => (
                       <div key={t.id} onClick={() => { toggle(t.id); setTick(x => x + 1); }} style={{
-                        display: 'flex', alignItems: 'flex-start', gap: 14, background: 'var(--card)', border: '1px solid', borderColor: t.isNew ? '#F5552E' : 'var(--line)',
-                        borderRadius: 14, padding: '14px 16px', cursor: 'pointer', opacity: done[t.id] ? 0.5 : 1, transition: 'opacity .2s', borderLeft: t.isNew ? '3px solid #F5552E' : undefined,
+                        display: 'flex', alignItems: 'flex-start', gap: 14, background: 'var(--card)', border: '1px solid', borderColor: taskIsNew(t) ? '#F5552E' : 'var(--line)',
+                        borderRadius: 14, padding: '14px 16px', cursor: 'pointer', opacity: done[t.id] ? 0.5 : 1, transition: 'opacity .2s', borderLeft: taskIsNew(t) ? '3px solid #F5552E' : undefined,
                       }}>
                         <span style={{ width: 20, height: 20, borderRadius: 6, border: '2px solid', borderColor: done[t.id] ? '#F5552E' : 'var(--line-2)', background: done[t.id] ? '#F5552E' : 'var(--card)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
                           {done[t.id] && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
@@ -388,7 +421,7 @@ export default function TasksPage() {
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
                             <span style={{ fontWeight: 600, fontSize: 14, letterSpacing: '-.01em', textDecoration: done[t.id] ? 'line-through' : 'none', color: done[t.id] ? 'var(--muted)' : 'var(--ink)' }}>{t.task}</span>
                             <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: t.priority === 'High' ? 'var(--accent-soft)' : t.priority === 'Medium' ? 'var(--card-2)' : 'var(--card-3)', color: PRI_COLORS[t.priority] }}>{t.priority}</span>
-                            {t.isNew && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: 'var(--accent-soft)', color: '#F5552E' }}>★ New</span>}
+                            {taskIsNew(t) && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: 'var(--accent-soft)', color: '#F5552E' }}>★ New</span>}
                           </div>
                           {t.notes && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, lineHeight: 1.5 }}>{t.notes}</div>}
                         </div>
@@ -406,6 +439,14 @@ export default function TasksPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Floating add button — always reachable once you scroll past the top one */}
+      {showFab && (
+        <button onClick={() => setAddOpen(true)} className="task-fab coral-btn" aria-label="Add task" title="Add task"
+          style={{ position: 'fixed', right: 24, width: 56, height: 56, borderRadius: 999, justifyContent: 'center', fontSize: 26, boxShadow: '0 10px 28px rgba(245,85,46,.45)', zIndex: 45, padding: 0 }}>
+          <span style={{ marginTop: -2 }}>+</span>
+        </button>
       )}
 
       {(addOpen || editTask) && <TaskModal goal={goal} initial={editTask || undefined} weeks={[...new Set(all.map(t => t.week).filter(Boolean))]} onClose={() => { setAddOpen(false); setEditTask(null); refresh(); setTick(x => x + 1); }} />}

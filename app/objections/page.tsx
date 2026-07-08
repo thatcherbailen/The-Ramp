@@ -2,11 +2,72 @@
 import { useState, useEffect } from 'react';
 import Modal from '@/components/Modal';
 import DotMenu from '@/components/DotMenu';
-import { getObjections, saveObjection, deleteObjection, uid, mergeSeed, hideSeedItem } from '@/lib/store';
+import { getObjections, saveObjection, deleteObjection, uid, mergeSeed, hideSeedItem, getDrillLog, deleteDrillLog, DrillResult } from '@/lib/store';
 import { Objection } from '@/lib/types';
 import { SEED_OBJECTIONS } from '@/lib/seedData';
 import ObjectionDrillSession from '@/components/ObjectionDrillSession';
 import StreakBadge from '@/components/StreakBadge';
+
+function drillTimeAgo(ts?: number): string {
+  if (!ts) return '';
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60); if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60); if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24); if (d < 7) return `${d}d ago`;
+  return new Date(ts).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+}
+function drillScoreColor(score: number): { bg: string; fg: string } {
+  if (score >= 70) return { bg: 'var(--accent-soft)', fg: 'var(--accent-ink)' };
+  if (score >= 40) return { bg: 'var(--card-3)', fg: 'var(--ink-2)' };
+  return { bg: '#F5E3DE', fg: '#C24A24' };
+}
+
+// Read-only view of a logged objection drill.
+function DrillDetailModal({ result, onClose }: { result: DrillResult; onClose: () => void }) {
+  const d = result.detail || {};
+  const sc = drillScoreColor(result.score);
+  return (
+    <Modal title="Objection Drill" onClose={onClose} width={620}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ width: 60, height: 60, borderRadius: '50%', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: sc.bg, color: sc.fg }}>
+            <span style={{ fontWeight: 800, fontSize: 21, lineHeight: 1 }}>{result.score}</span>
+            <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', marginTop: 2 }}>score</span>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 3 }}>{drillTimeAgo(result.ts)}</div>
+            <div style={{ fontSize: 14, color: 'var(--ink-2b)', lineHeight: 1.5 }}>{d.summary}</div>
+          </div>
+        </div>
+
+        <div style={{ background: 'var(--fill-dark)', borderRadius: 14, padding: '16px 18px' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,.45)', marginBottom: 6 }}>Prospect said</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.4 }}>&ldquo;{d.objection}&rdquo;</div>
+        </div>
+
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--muted-2)', marginBottom: 6 }}>Your response</div>
+          <div style={{ fontSize: 13.5, color: 'var(--ink-2)', lineHeight: 1.55, background: 'var(--card-2)', border: '1px solid var(--line)', borderRadius: 12, padding: '12px 14px' }}>{d.response}</div>
+        </div>
+
+        {d.criteria?.length ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {d.criteria.map((c, i) => (
+              <div key={i} style={{ display: 'flex', gap: 12, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--line)', background: c.met ? 'var(--card-2)' : 'var(--card)' }}>
+                <span style={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, background: c.met ? '#DCEFE0' : '#F5E3DE', color: c.met ? '#2E7D46' : '#C24A24' }}>{c.met ? '✓' : '✕'}</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>{c.label}</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2, lineHeight: 1.45 }}>{c.note}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </Modal>
+  );
+}
 
 const TAGS = ['Price','Competitor','Brush off','No budget','Timing','Status quo','Stakeholder','No need','Sceptical','Other'];
 
@@ -49,9 +110,17 @@ export default function ObjectionsPage() {
   const [editObj, setEditObj] = useState<Objection|null>(null);
   const [flipped, setFlipped] = useState<Set<string>>(new Set());
   const [drillOpen, setDrillOpen] = useState(false);
+  const [history, setHistory] = useState<DrillResult[]>([]);
+  const [detail, setDetail] = useState<DrillResult|null>(null);
 
   const load = () => setUserObjections(getObjections());
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const refreshHistory = () => setHistory(getDrillLog('objection'));
+    refreshHistory();
+    window.addEventListener('scc:practice-logged', refreshHistory);
+    return () => window.removeEventListener('scc:practice-logged', refreshHistory);
+  }, []);
 
   const allObjections = mergeSeed('objections', SEED_OBJECTIONS, userObjections);
 
@@ -156,6 +225,34 @@ export default function ObjectionsPage() {
         })}
       </div>
 
+      {/* Drill history */}
+      {history.length > 0 && (
+        <div style={{ marginTop:30 }}>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:'.08em', textTransform:'uppercase', color:'var(--muted)', marginBottom:14 }}>Recent drills</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {history.map(h => {
+              const sc = drillScoreColor(h.score);
+              return (
+                <div key={h.id} onClick={() => setDetail(h)} className="card" style={{ display:'flex', alignItems:'center', gap:16, padding:'14px 18px', cursor:'pointer' }}>
+                  <div style={{ width:46, height:46, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', background:sc.bg, color:sc.fg, fontWeight:800, fontSize:16 }}>{h.score}</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontWeight:700, fontSize:14, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>&ldquo;{h.detail?.objection || h.detail?.title || 'Objection'}&rdquo;</div>
+                    <div style={{ fontSize:12.5, color:'var(--muted)', lineHeight:1.5, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{h.detail?.summary || 'Tap to see the full feedback'}</div>
+                  </div>
+                  <span style={{ fontSize:11.5, color:'var(--muted-2)', flexShrink:0 }}>{drillTimeAgo(h.ts)}</span>
+                  <div onClick={e => e.stopPropagation()}>
+                    <DotMenu actions={[
+                      { label:'View', onClick:() => setDetail(h) },
+                      { label:'Delete', onClick:() => deleteDrillLog(h.id), danger:true },
+                    ]} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {(addOpen || editObj) && (
         <ObjectionModal initial={editObj || undefined} onClose={() => { setAddOpen(false); setEditObj(null); load(); }} />
       )}
@@ -163,6 +260,8 @@ export default function ObjectionsPage() {
       {drillOpen && (
         <ObjectionDrillSession pool={allObjections} onClose={() => setDrillOpen(false)} />
       )}
+
+      {detail && <DrillDetailModal result={detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }

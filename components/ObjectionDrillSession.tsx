@@ -40,7 +40,13 @@ export default function ObjectionDrillSession({ pool, onClose }: { pool: Objecti
       setFeedback(data);
       setReps(r => r + 1);
       logPracticeToday();
-      if (data.score > 0) logDrillResult('objection', data.score);
+      if (data.score > 0) logDrillResult('objection', data.score, {
+        title: current.tag || 'Objection',
+        objection: current.objection,
+        response,
+        summary: data.summary,
+        criteria: CRITERIA.map(c => ({ label: c.label, met: data[c.key]?.met, note: data[c.key]?.note })),
+      });
     } catch {
       setError('Couldn\'t reach the scoring service — try again.');
     } finally {

@@ -32,6 +32,7 @@ const ALL_SECTIONS: { group: string; items: { href: string; label: string; key?:
     { href: '/notes', label: 'Notes', key: 'notes' },
   ]},
   { group: 'Learn', items: [
+    { href: '/guide', label: 'How to Use' },
     { href: '/news', label: 'Tech News', key: 'news' },
     { href: '/reading', label: 'Reading List', key: 'reading' },
   ]},

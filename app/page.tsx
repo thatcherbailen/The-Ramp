@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSettings, getCalls, getJobs, getCustomTasks, getTaskDone, getTaskDeletes, getTaskEdits, getStories, getContacts, getEvents } from '@/lib/store';
+import { getSettings, getCalls, getJobs, getCustomTasks, getTaskDone, getTaskDeletes, getTaskEdits, getStories, getContacts, getEvents, isDismissed, dismissFlag } from '@/lib/store';
 import { SEED_TASKS, SEED_STORIES } from '@/lib/seedData';
 import LogCallModal from '@/components/LogCallModal';
 import StreakBadge from '@/components/StreakBadge';
@@ -40,10 +40,12 @@ export default function TodayPage() {
   const [userName, setUserName] = useState('there');
   const [cards, setCards] = useState<Card[]>([]);
   const [todayEvents, setTodayEvents] = useState<DayEvent[]>([]);
+  const [showGuide, setShowGuide] = useState(false);
 
   useEffect(() => {
     const settings = getSettings();
     setUserName(settings.userName);
+    setShowGuide(!isDismissed('guide-banner'));
 
     const calls = getCalls();
     const jobs = getJobs();
@@ -113,6 +115,18 @@ export default function TodayPage() {
           </button>
         </div>
       </div>
+
+      {showGuide && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--fill-dark)', color: '#fff', borderRadius: 16, padding: '16px 18px', marginBottom: 16 }}>
+          <span style={{ fontSize: 22, flexShrink: 0 }}>👋</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 14.5 }}>New here? Start with the 2-minute guide</div>
+            <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.6)', marginTop: 1 }}>How it works, plus tips to get the most out of your first mock call.</div>
+          </div>
+          <button onClick={() => router.push('/guide')} className="coral-btn" style={{ height: 38, padding: '0 16px', fontSize: 13, borderRadius: 10, flexShrink: 0 }}>Read guide →</button>
+          <button onClick={() => { dismissFlag('guide-banner'); setShowGuide(false); }} aria-label="Dismiss" style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, border: 'none', background: 'rgba(255,255,255,.1)', color: 'rgba(255,255,255,.7)', cursor: 'pointer', fontSize: 16 }}>×</button>
+        </div>
+      )}
 
       <div className="grid-2up" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14, marginBottom: 20, alignItems: 'stretch' }}>
         <ReadinessCard />
