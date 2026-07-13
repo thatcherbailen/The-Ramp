@@ -1,10 +1,10 @@
 'use client';
 import { useState } from 'react';
 import Modal from './Modal';
-import { saveCall, uid } from '@/lib/store';
+import { saveCall, uid, getCalls } from '@/lib/store';
 import { Call } from '@/lib/types';
 
-const SOURCES = ['Cold call', 'LinkedIn', 'Referral', 'Inbound', 'Email', 'Event', 'Other'];
+const SOURCES = ['Cold call', 'Website lead', 'Inbound', 'Referral', 'LinkedIn', 'Email', 'Event', 'Other'];
 const OUTCOMES = ['Appointment booked', 'Voicemail', 'Not interested', 'Follow up', 'Wrong number', 'No answer', 'Call back later'];
 const OBJECTIONS = ['None', 'Price', 'Timing', 'Competitor', 'No need', 'No decision maker', 'Brush off', 'Budget'];
 const TONES = ['Warm', 'Neutral', 'Cold', 'Hostile', 'Interested'];
@@ -16,7 +16,12 @@ const BLANK: Partial<Call> = {
 };
 
 export default function LogCallModal({ onClose, initial }: { onClose: () => void; initial?: Partial<Call> }) {
-  const [f, setF] = useState<Partial<Call>>({ ...BLANK, ...initial });
+  // New calls default the call # to (calls logged so far) + 1; editing keeps
+  // whatever number the call already has. Lazy init so getCalls() runs once.
+  const [f, setF] = useState<Partial<Call>>(() => ({
+    ...BLANK, ...initial,
+    callNumber: initial?.callNumber ?? getCalls().length + 1,
+  }));
   const update = (p: Partial<Call>) => setF(v => ({ ...v, ...p }));
 
   const save = () => {
