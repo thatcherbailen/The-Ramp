@@ -63,7 +63,7 @@ export default function Sidebar({ onSettings, onProfile }: { onSettings: () => v
     }}>
       <div style={{ padding: '0 12px 20px' }}>
         <div style={{ fontWeight: 800, fontSize: 21, letterSpacing: '-.02em' }}>The Ramp</div>
-        <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', marginTop: 3 }}>Sales Practice Platform</div>
+        <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', marginTop: 3 }}>Sales Prep Platform</div>
       </div>
 
       {sections.map(section => (

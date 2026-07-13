@@ -29,8 +29,10 @@ function ContactModal({ initial, onClose }: { initial?: Contact; onClose: () => 
     onClose();
   };
 
-  const L = ({ ch }: { ch: string }) => <label className="form-label">{ch}</label>;
-  const I = ({ k, ph }: { k: keyof Contact; ph?: string }) => (
+  // Plain functions called as {inp(...)} — not <I/>/<L/> components, which
+  // would remount each keystroke and drop input focus.
+  const lbl = (ch: string) => <label className="form-label">{ch}</label>;
+  const inp = (k: keyof Contact, ph?: string) => (
     <input className="form-input" placeholder={ph} value={f[k] as string||''} onChange={e => upd({ [k]:e.target.value } as Partial<Contact>)} />
   );
 
@@ -38,30 +40,30 @@ function ContactModal({ initial, onClose }: { initial?: Contact; onClose: () => 
     <Modal title={initial ? 'Edit contact' : 'Add to network'} onClose={onClose}>
       <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
-          <div><L ch="Name" /><I k="name" ph="Alex Chen" /></div>
-          <div><L ch="Role" /><I k="role" ph="SDR Manager" /></div>
+          <div>{lbl('Name')}{inp('name', 'Alex Chen')}</div>
+          <div>{lbl('Role')}{inp('role', 'Sales Manager')}</div>
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
-          <div><L ch="Company" /><I k="company" ph="Cloudflare" /></div>
+          <div>{lbl('Company')}{inp('company', 'Company name')}</div>
           <div>
-            <L ch="Status" />
+            {lbl('Status')}
             <select className="form-select" value={f.status||'Warm'} onChange={e => upd({ status:e.target.value })}>
               {Object.keys(STATUS_COLORS).map(s => <option key={s}>{s}</option>)}
             </select>
           </div>
         </div>
-        <div><L ch="Who linked you up" /><I k="linkedBy" ph="Referred by / LinkedIn / Event..." /></div>
-        <div><L ch="Where you met" /><I k="metWhere" ph="LinkedIn, coffee chat, SDR panel..." /></div>
+        <div>{lbl('Who linked you up')}{inp('linkedBy', 'Referred by / LinkedIn / Event...')}</div>
+        <div>{lbl('Where you met')}{inp('metWhere', 'LinkedIn, coffee chat, event...')}</div>
         <div>
-          <L ch="Follow-up date → calendar" />
+          {lbl('Follow-up date → calendar')}
           <input className="form-input" type="date" value={f.followupDate||''} onChange={e => upd({ followupDate:e.target.value })} />
         </div>
         <div>
-          <L ch="Extended network (who can they intro you to?)" />
-          <textarea className="form-input" placeholder="Their manager, 3 other SDRs at Datadog..." value={f.extendedNetwork||''} onChange={e => upd({ extendedNetwork:e.target.value })} style={{ minHeight:64, resize:'vertical' }} />
+          {lbl('Extended network (who can they intro you to?)')}
+          <textarea className="form-input" placeholder="Their manager, other people on the team..." value={f.extendedNetwork||''} onChange={e => upd({ extendedNetwork:e.target.value })} style={{ minHeight:64, resize:'vertical' }} />
         </div>
         <div>
-          <L ch="Notes" />
+          {lbl('Notes')}
           <textarea className="form-input" placeholder="Context, talking points, next step..." value={f.notes||''} onChange={e => upd({ notes:e.target.value })} style={{ minHeight:64, resize:'vertical' }} />
         </div>
         <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:4 }}>

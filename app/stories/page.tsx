@@ -43,10 +43,12 @@ function StoryModal({ initial, onClose }: { initial?: Story; onClose: () => void
     }
   };
 
-  const Field = ({ label, field, ph }: { label:string; field:keyof Story; ph?:string }) => (
+  // Plain function called as {field(...)}, not a <Field/> component — a
+  // component defined in render remounts each keystroke and drops focus.
+  const field = (label: string, key: keyof Story, ph?: string) => (
     <div>
       <label className="form-label">{label}</label>
-      <textarea className="form-input" placeholder={ph} value={f[field] as string||''} onChange={e => upd({ [field]:e.target.value } as Partial<Story>)} style={{ minHeight:72, resize:'vertical' }} />
+      <textarea className="form-input" placeholder={ph} value={f[key] as string||''} onChange={e => upd({ [key]:e.target.value } as Partial<Story>)} style={{ minHeight:72, resize:'vertical' }} />
     </div>
   );
 
@@ -77,10 +79,10 @@ function StoryModal({ initial, onClose }: { initial?: Story; onClose: () => void
             <input className="form-input" placeholder="17 Jun" value={f.date||''} onChange={e => upd({ date:e.target.value })} />
           </div>
         </div>
-        <Field label="Situation" field="situation" ph="What was happening?" />
-        <Field label="Task / your goal" field="task" ph="What were you trying to achieve?" />
-        <Field label="Action" field="action" ph="What did you specifically do?" />
-        <Field label="Result" field="result" ph="What happened, what did you learn?" />
+        {field('Situation', 'situation', 'What was happening?')}
+        {field('Task / your goal', 'task', 'What were you trying to achieve?')}
+        {field('Action', 'action', 'What did you specifically do?')}
+        {field('Result', 'result', 'What happened, what did you learn?')}
         <div>
           <label className="form-label">Interview questions it answers</label>
           <input className="form-input" placeholder="Tell me about a difficult prospect · How do you handle rejection?" value={f.question||''} onChange={e => upd({ question:e.target.value })} />

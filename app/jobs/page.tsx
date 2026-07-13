@@ -56,18 +56,18 @@ function JobModal({ initial, onClose }: { initial?: Job; onClose: () => void }) 
   const [f, setF] = useState<Partial<Job>>({ company: '', role: '', location: '', source: 'LinkedIn', status: 'Applied', ote: '', nextStep: '', contact: '', notes: '', interviewDate: '', ...initial });
   const upd = (p: Partial<Job>) => setF(v => ({ ...v, ...p }));
   const save = () => { if (!f.company?.trim()) return; saveJob({ id: initial?.id || uid(), company: f.company!, role: f.role || '', location: f.location || '', source: f.source || 'LinkedIn', status: f.status || 'Applied', ote: f.ote || '', nextStep: f.nextStep || '', contact: f.contact || '', notes: f.notes || '', interviewDate: f.interviewDate }); onClose(); };
-  const I = ({ k, ph }: { k: keyof Job; ph?: string }) => <input className="form-input" placeholder={ph} value={f[k] as string || ''} onChange={e => upd({ [k]: e.target.value } as Partial<Job>)} />;
+  const inp = (k: keyof Job, ph?: string) => <input className="form-input" placeholder={ph} value={f[k] as string || ''} onChange={e => upd({ [k]: e.target.value } as Partial<Job>)} />;
   return (
     <Modal title={initial ? 'Edit job' : 'Add job'} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}><div><label className="form-label">Company</label><I k="company" ph="Cloudflare" /></div><div><label className="form-label">Role</label><I k="role" ph="SDR / BDR" /></div></div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}><div><label className="form-label">Location</label><I k="location" ph="Sydney, AU" /></div><div><label className="form-label">Source</label><I k="source" ph="LinkedIn, Referral…" /></div></div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}><div><label className="form-label">Company</label>{inp('company', 'Company name')}</div><div><label className="form-label">Role</label>{inp('role', 'Sales role')}</div></div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}><div><label className="form-label">Location</label>{inp('location', 'City / Remote')}</div><div><label className="form-label">Source</label>{inp('source', 'LinkedIn, Referral…')}</div></div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div><label className="form-label">Status</label><select className="form-select" value={f.status || 'Applied'} onChange={e => upd({ status: e.target.value })}>{STATUSES.map(s => <option key={s}>{s}</option>)}</select></div>
-          <div><label className="form-label">OTE</label><I k="ote" ph="$80–100k" /></div>
+          <div><label className="form-label">OTE</label>{inp('ote', '$80–100k')}</div>
         </div>
-        <div><label className="form-label">Next step</label><I k="nextStep" ph="Follow up by…" /></div>
-        <div><label className="form-label">Contact</label><I k="contact" ph="Name · email / LinkedIn" /></div>
+        <div><label className="form-label">Next step</label>{inp('nextStep', 'Follow up by…')}</div>
+        <div><label className="form-label">Contact</label>{inp('contact', 'Name · email / LinkedIn')}</div>
         <div><label className="form-label">Interview date → calendar</label><input className="form-input" type="date" value={f.interviewDate || ''} onChange={e => upd({ interviewDate: e.target.value })} /></div>
         <div><label className="form-label">Notes</label><textarea className="form-input" placeholder="Any context, referral info…" value={f.notes || ''} onChange={e => upd({ notes: e.target.value })} style={{ minHeight: 72, resize: 'vertical' }} /></div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}><button onClick={onClose} style={cancelBtn}>Cancel</button><button onClick={save} className="coral-btn" style={addBtn}>{initial ? 'Save changes' : 'Add job'}</button></div>
@@ -81,18 +81,18 @@ function OutreachModal({ initial, onClose }: { initial?: OutreachEntry; onClose:
   const [f, setF] = useState<Partial<OutreachEntry>>({ date: '', name: '', company: '', role: '', type: 'Connection Request', status: 'Awaiting', followup: '', referral: 'Maybe', notes: '', ...initial });
   const upd = (p: Partial<OutreachEntry>) => setF(v => ({ ...v, ...p }));
   const save = () => { if (!f.name?.trim()) return; saveOutreach({ id: initial?.id || uid(), date: f.date || '', name: f.name!, company: f.company || '', role: f.role || '', type: f.type || '', status: f.status || 'Awaiting', followup: f.followup || '', referral: f.referral || '', notes: f.notes || '' }); onClose(); };
-  const I = ({ k, ph }: { k: keyof OutreachEntry; ph?: string }) => <input className="form-input" placeholder={ph} value={f[k] as string || ''} onChange={e => upd({ [k]: e.target.value } as Partial<OutreachEntry>)} />;
+  const inp = (k: keyof OutreachEntry, ph?: string) => <input className="form-input" placeholder={ph} value={f[k] as string || ''} onChange={e => upd({ [k]: e.target.value } as Partial<OutreachEntry>)} />;
   return (
     <Modal title={initial ? 'Edit outreach' : 'Add outreach'} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}><div><label className="form-label">Name</label><I k="name" ph="Jordan Lee" /></div><div><label className="form-label">Date</label><I k="date" ph="22 Jun" /></div></div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}><div><label className="form-label">Company</label><I k="company" ph="Cloudflare" /></div><div><label className="form-label">Role</label><I k="role" ph="BDR, ANZ" /></div></div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}><div><label className="form-label">Name</label>{inp('name', 'Jordan Lee')}</div><div><label className="form-label">Date</label>{inp('date', '22 Jun')}</div></div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}><div><label className="form-label">Company</label>{inp('company', 'Company name')}</div><div><label className="form-label">Role</label>{inp('role', 'Their role')}</div></div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div><label className="form-label">Outreach type</label><select className="form-select" value={f.type} onChange={e => upd({ type: e.target.value })}>{['Connection Request', 'Message / InMail', 'Email', 'Comment', 'Referral ask', 'Other'].map(o => <option key={o}>{o}</option>)}</select></div>
           <div><label className="form-label">Status</label><select className="form-select" value={f.status} onChange={e => upd({ status: e.target.value })}>{['Awaiting', 'Replied', 'Booked', 'No response'].map(o => <option key={o}>{o}</option>)}</select></div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <div><label className="form-label">Follow-up</label><I k="followup" ph="29 Jun" /></div>
+          <div><label className="form-label">Follow-up</label>{inp('followup', '29 Jun')}</div>
           <div><label className="form-label">Referral?</label><select className="form-select" value={f.referral} onChange={e => upd({ referral: e.target.value })}>{['Yes', 'Maybe', 'No'].map(o => <option key={o}>{o}</option>)}</select></div>
         </div>
         <div><label className="form-label">Notes</label><textarea className="form-input" placeholder="What happened, next step…" value={f.notes || ''} onChange={e => upd({ notes: e.target.value })} style={{ minHeight: 64, resize: 'vertical' }} /></div>
@@ -110,13 +110,14 @@ function RoofingModal({ week, data, onClose }: { week: string; data: RoofingWeek
   const [f, setF] = useState<RoofingWeek>({ ...data });
   const upd = (p: Partial<RoofingWeek>) => setF(v => ({ ...v, ...p }));
   const save = () => { saveRoofingWeek(week, f); onClose(); };
-  const N = ({ k, label }: { k: keyof RoofingWeek; label: string }) => <div><label className="form-label">{label}</label><input className="form-input" type="number" value={f[k] || ''} onChange={e => upd({ [k]: e.target.value } as Partial<RoofingWeek>)} /></div>;
+  // function, not <N/> component — see focus note in LogCallModal.
+  const num = (k: keyof RoofingWeek, label: string) => <div><label className="form-label">{label}</label><input className="form-input" type="number" value={f[k] || ''} onChange={e => upd({ [k]: e.target.value } as Partial<RoofingWeek>)} /></div>;
   return (
     <Modal title={`Week of ${week}`} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}><N k="calls" label="Calls made" /><N k="booked" label="Appointments booked" /></div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}><N k="held" label="Appointments held" /><N k="sent" label="Proposals sent" /></div>
-        <N k="won" label="Proposals won" />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>{num('calls', 'Calls made')}{num('booked', 'Appointments booked')}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>{num('held', 'Appointments held')}{num('sent', 'Proposals sent')}</div>
+        {num('won', 'Proposals won')}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}><button onClick={onClose} style={cancelBtn}>Cancel</button><button onClick={save} className="coral-btn" style={addBtn}>Save week</button></div>
       </div>
     </Modal>

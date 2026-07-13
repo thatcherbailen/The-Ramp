@@ -22,7 +22,10 @@ export default function ProfileModal({ onClose }: { onClose: () => void }) {
 
   const initials = (s.fullName || s.userName || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
-  const Field = ({ label, value, onChange, placeholder, type = 'text' }: { label: string; value?: string; onChange: (v: string) => void; placeholder?: string; type?: string }) => (
+  // Plain function (called as {field(...)}), not a component rendered as
+  // <Field/> — a component defined in render remounts each keystroke and
+  // drops input focus. See the note in LogCallModal.
+  const field = (label: string, value: string | undefined, onChange: (v: string) => void, placeholder?: string, type = 'text') => (
     <div>
       <label className="form-label">{label}</label>
       <input className="form-input" type={type} placeholder={placeholder} value={value || ''} onChange={e => onChange(e.target.value)} />
@@ -48,21 +51,21 @@ export default function ProfileModal({ onClose }: { onClose: () => void }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <div>
                 <label className="form-label">Display name (shown in sidebar)</label>
-                <input className="form-input" placeholder="Bailen" value={s.userName} onChange={e => upd({ userName: e.target.value })} />
+                <input className="form-input" placeholder="Your name" value={s.userName} onChange={e => upd({ userName: e.target.value })} />
               </div>
-              <Field label="Full name" value={s.fullName} onChange={v => upd({ fullName: v })} placeholder="Bailen Thatcher" />
+              {field('Full name', s.fullName, v => upd({ fullName: v }), 'Your full name')}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <Field label="Email" value={s.email} onChange={v => upd({ email: v })} placeholder="you@email.com" type="email" />
-              <Field label="Phone" value={s.phone} onChange={v => upd({ phone: v })} placeholder="+61…" type="tel" />
+              {field('Email', s.email, v => upd({ email: v }), 'you@email.com', 'email')}
+              {field('Phone', s.phone, v => upd({ phone: v }), '+61…', 'tel')}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <Field label="Role / title" value={s.targetRole} onChange={v => upd({ targetRole: v })} placeholder="SDR / BDR" />
-              <Field label="City" value={s.city} onChange={v => upd({ city: v })} placeholder="Sydney" />
+              {field('Role / title', s.targetRole, v => upd({ targetRole: v }), 'Sales')}
+              {field('City', s.city, v => upd({ city: v }), 'City')}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <Field label="LinkedIn" value={s.linkedin} onChange={v => upd({ linkedin: v })} placeholder="linkedin.com/in/…" />
-              <Field label="Website" value={s.website} onChange={v => upd({ website: v })} placeholder="yoursite.com" />
+              {field('LinkedIn', s.linkedin, v => upd({ linkedin: v }), 'linkedin.com/in/…')}
+              {field('Website', s.website, v => upd({ website: v }), 'yoursite.com')}
             </div>
             <div>
               <label className="form-label">About</label>

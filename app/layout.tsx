@@ -4,7 +4,7 @@ import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://theramphq.app"),
-  title: "The Ramp — Sales Practice Platform",
+  title: "The Ramp",
   description: "The Ramp — practice calls, drill objections, prep interviews and run your whole sales pipeline in one place",
   manifest: "/manifest.webmanifest",
   appleWebApp: {

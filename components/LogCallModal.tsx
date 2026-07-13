@@ -45,12 +45,17 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
     onClose();
   };
 
-  const L = ({ children }: { children: React.ReactNode }) => <label className="form-label">{children}</label>;
-  const Inp = ({ field, placeholder, type = 'text' }: { field: keyof Call; placeholder?: string; type?: string }) => (
+  // NOTE: these are plain functions called as {inp(...)}, NOT components
+  // rendered as <Inp/>. Defining a component inside render and mounting it as
+  // an element gives it a new identity every keystroke, which remounts the
+  // input and drops focus after one character. Calling a function that returns
+  // a native <input> keeps the DOM node stable, so typing works normally.
+  const lbl = (children: React.ReactNode) => <label className="form-label">{children}</label>;
+  const inp = (field: keyof Call, placeholder?: string, type = 'text') => (
     <input className="form-input" type={type} placeholder={placeholder}
       value={f[field] as string || ''} onChange={e => update({ [field]: e.target.value } as Partial<Call>)} />
   );
-  const Sel = ({ field, opts }: { field: keyof Call; opts: string[] }) => (
+  const sel = (field: keyof Call, opts: string[]) => (
     <select className="form-select" value={f[field] as string || ''} onChange={e => update({ [field]: e.target.value } as Partial<Call>)}>
       {opts.map(o => <option key={o}>{o}</option>)}
     </select>
@@ -59,28 +64,28 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
   return (
     <Modal title={initial ? 'Edit call' : 'Log a call'} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div><L>Lead name / company</L><Inp field="lead" placeholder="Acme Corp — John Smith" /></div>
+        <div>{lbl('Lead name / company')}{inp('lead', 'Acme Corp — John Smith')}</div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <div><L>Source</L><Sel field="source" opts={SOURCES} /></div>
-          <div><L>Call #</L><Inp field="callNumber" placeholder="1" type="number" /></div>
+          <div>{lbl('Source')}{sel('source', SOURCES)}</div>
+          <div>{lbl('Call #')}{inp('callNumber', '1', 'number')}</div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <div><L>Outcome</L><Sel field="outcome" opts={OUTCOMES} /></div>
-          <div><L>Duration</L><Inp field="duration" placeholder="2m 30s" /></div>
+          <div>{lbl('Outcome')}{sel('outcome', OUTCOMES)}</div>
+          <div>{lbl('Duration')}{inp('duration', '2m 30s')}</div>
         </div>
 
         <div>
-          <L>Confidence (1–10) — {f.confidence}</L>
+          {lbl(`Confidence (1–10) — ${f.confidence}`)}
           <input type="range" min={1} max={10} value={f.confidence || 5}
             onChange={e => update({ confidence: Number(e.target.value) })}
             style={{ width: '100%', accentColor: '#F5552E' }} />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <div><L>Objection</L><Sel field="objection" opts={OBJECTIONS} /></div>
-          <div><L>Tone</L><Sel field="tone" opts={TONES} /></div>
+          <div>{lbl('Objection')}{sel('objection', OBJECTIONS)}</div>
+          <div>{lbl('Tone')}{sel('tone', TONES)}</div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -98,19 +103,19 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
         </div>
 
         {f.appointmentBooked && (
-          <div><L>Job value (if it closes)</L><Inp field="jobValue" placeholder="$14,000" /></div>
+          <div>{lbl('Job value (if it closes)')}{inp('jobValue', '$14,000')}</div>
         )}
 
         <div>
-          <L>Response / what you said</L>
+          {lbl('Response / what you said')}
           <textarea className="form-input" placeholder="How did you handle it?"
             value={f.response || ''} onChange={e => update({ response: e.target.value })}
             style={{ minHeight: 72, resize: 'vertical' }} />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <div><L>What worked</L><Inp field="worked" placeholder="Warm opener, stayed calm..." /></div>
-          <div><L>What to improve</L><Inp field="improve" placeholder="Pause before pitching..." /></div>
+          <div>{lbl('What worked')}{inp('worked', 'Warm opener, stayed calm...')}</div>
+          <div>{lbl('What to improve')}{inp('improve', 'Pause before pitching...')}</div>
         </div>
 
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>

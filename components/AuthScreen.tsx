@@ -52,7 +52,7 @@ export default function AuthScreen({ onAuthed, onSignedUpUnconfirmed }: { onAuth
             Calls, pipeline, interview prep and your whole schedule in one place — set up in a couple of minutes.
           </div>
         </div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,.4)', fontWeight: 500 }}>Sales Practice Platform</div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,.4)', fontWeight: 500 }}>Sales Prep Platform</div>
       </div>
 
       {/* Form panel */}
