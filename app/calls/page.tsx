@@ -28,7 +28,10 @@ export default function CallsPage() {
   const [logOpen, setLogOpen] = useState(false);
   const [editCall, setEditCall] = useState<Call|null>(null);
 
-  const load = () => setCalls(getCalls().sort((a,b) => b.date.localeCompare(a.date)));
+  // Latest call at the top. Sort by call number (the running counter) so the
+  // "#" column reads cleanly descending and always matches the actual call;
+  // fall back to date for any legacy call without a number.
+  const load = () => setCalls(getCalls().sort((a,b) => (b.callNumber || 0) - (a.callNumber || 0) || b.date.localeCompare(a.date)));
   useEffect(() => { load(); }, [logOpen, editCall]);
 
   const apptCount = calls.filter(c => c.appointmentBooked).length;
@@ -96,7 +99,7 @@ export default function CallsPage() {
             {calls.map((c,i) => (
               <div key={c.id} style={{ padding:'15px 22px', borderTop:'1px solid var(--line-3)' }}>
                 <div style={{ display:'grid', gridTemplateColumns:'34px 1.6fr 150px 58px 116px 60px', gap:14, alignItems:'center' }}>
-                  <div className="scc-num" style={{ fontWeight:600, color:'var(--muted-3)', fontSize:14 }}>{i+1}</div>
+                  <div className="scc-num" style={{ fontWeight:600, color:'var(--muted-3)', fontSize:14 }}>{c.callNumber || i+1}</div>
                   <div>
                     <div style={{ fontWeight:700, fontSize:15, letterSpacing:'-.01em' }}>{c.lead}</div>
                     <div style={{ fontSize:12, color:'var(--muted)', marginTop:1 }}>{c.source} · {c.date}</div>
