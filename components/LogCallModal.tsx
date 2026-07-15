@@ -21,6 +21,7 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
   const [f, setF] = useState<Partial<Call>>(() => ({
     ...BLANK, ...initial,
     callNumber: initial?.callNumber ?? getCalls().length + 1,
+    date: initial?.date ?? new Date().toISOString().slice(0, 10),
   }));
   const update = (p: Partial<Call>) => setF(v => ({ ...v, ...p }));
 
@@ -28,7 +29,7 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
     if (!f.lead?.trim()) return;
     const c: Call = {
       id: (initial as Call)?.id || uid(),
-      date: (initial as Call)?.date || new Date().toISOString().slice(0,10),
+      date: f.date || new Date().toISOString().slice(0,10),
       lead: f.lead!,
       source: f.source || 'Cold call',
       callNumber: f.callNumber || 1,
@@ -65,6 +66,11 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
       {opts.map(o => <option key={o}>{o}</option>)}
     </select>
   );
+  const txt = (field: keyof Call, placeholder?: string) => (
+    <textarea className="form-input" placeholder={placeholder}
+      value={f[field] as string || ''} onChange={e => update({ [field]: e.target.value } as Partial<Call>)}
+      style={{ minHeight: 90, resize: 'vertical' }} />
+  );
 
   return (
     <Modal title={initial ? 'Edit call' : 'Log a call'} onClose={onClose}>
@@ -72,14 +78,19 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
         <div>{lbl('Lead name / company')}{inp('lead', 'Acme Corp — John Smith')}</div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <div>{lbl('Source')}{sel('source', SOURCES)}</div>
+          <div>
+            {lbl('Date called')}
+            <input className="form-input" type="date" value={f.date || ''} onChange={e => update({ date: e.target.value })} />
+          </div>
           <div>{lbl('Call #')}{inp('callNumber', '1', 'number')}</div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <div>{lbl('Outcome')}{sel('outcome', OUTCOMES)}</div>
+          <div>{lbl('Source')}{sel('source', SOURCES)}</div>
           <div>{lbl('Duration')}{inp('duration', '2m 30s')}</div>
         </div>
+
+        <div>{lbl('Outcome')}{sel('outcome', OUTCOMES)}</div>
 
         <div>
           {lbl(`Confidence (1–10) — ${f.confidence}`)}
@@ -119,8 +130,8 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <div>{lbl('What worked')}{inp('worked', 'Warm opener, stayed calm...')}</div>
-          <div>{lbl('What to improve')}{inp('improve', 'Pause before pitching...')}</div>
+          <div>{lbl('What worked')}{txt('worked', 'Warm opener, stayed calm, asked a good qualifying question…')}</div>
+          <div>{lbl('What to improve')}{txt('improve', 'Paused too long before pitching, forgot to ask for the next step…')}</div>
         </div>
 
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
