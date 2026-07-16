@@ -23,15 +23,18 @@ function pillStyle(outcome: string) {
 }
 
 export default function CallsPage() {
-  const [tab, setTab] = useState<Tab>('log');
+  const [tab, setTab] = useState<Tab>('dashboard');
   const [calls, setCalls] = useState<Call[]>([]);
   const [logOpen, setLogOpen] = useState(false);
   const [editCall, setEditCall] = useState<Call|null>(null);
 
   // Latest call at the top. Sort by call number (the running counter) so the
   // "#" column reads cleanly descending and always matches the actual call;
-  // fall back to date for any legacy call without a number.
-  const load = () => setCalls(getCalls().sort((a,b) => (b.callNumber || 0) - (a.callNumber || 0) || b.date.localeCompare(a.date)));
+  // fall back to date for any legacy call without a number. Spread into a NEW
+  // array first — getCalls() returns the cached reference and .sort() mutates
+  // in place, so without the copy setCalls gets the same reference and React
+  // skips the re-render (why an inline toggle only showed after navigating).
+  const load = () => setCalls([...getCalls()].sort((a,b) => (b.callNumber || 0) - (a.callNumber || 0) || b.date.localeCompare(a.date)));
   useEffect(() => { load(); }, [logOpen, editCall]);
   // Never strand on the Meetings tab if the last booked meeting is removed.
   useEffect(() => { if (tab === 'meetings' && !calls.some(c => c.appointmentBooked)) setTab('log'); }, [tab, calls]);
@@ -73,7 +76,7 @@ export default function CallsPage() {
     { label:'Objections handled', value: objectionsHandled, coral:false },
   ];
 
-  const TABS: Tab[] = ['log', ...(apptCount ? ['meetings' as Tab] : []), 'dashboard', 'stories'];
+  const TABS: Tab[] = ['dashboard', 'log', ...(apptCount ? ['meetings' as Tab] : []), 'stories'];
   const tabLabel = (t: Tab) => t === 'log' ? 'Call Log' : t === 'meetings' ? `Meetings (${apptCount})` : t === 'dashboard' ? 'Dashboard' : 'Stories';
 
   return (

@@ -366,4 +366,14 @@ input[type="time"].form-input::-webkit-calendar-picker-indicator:hover { opacity
 
   /* Hide table header rows when columns stack */
   .table-head { display: none !important; }
+
+  /* Today hero: stack vertically with the streak card ABOVE the readiness
+     card so it's always reachable. DOM order is [readiness, streak], so a
+     reversed flex column puts streak on top. Overrides the blanket grid rule. */
+  .today-hero { display: flex !important; flex-direction: column-reverse; }
+
+  /* Stop iOS Safari from auto-zooming when a field is focused: it only zooms
+     when the control's font-size is under 16px, so pin form controls to 16px
+     on phones. Keeps pinch-zoom available (no maximum-scale lock). */
+  .form-input, .form-select, input, textarea, select { font-size: 16px !important; }
 }

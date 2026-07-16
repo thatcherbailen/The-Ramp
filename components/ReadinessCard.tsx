@@ -53,7 +53,7 @@ export default function ReadinessCard() {
         <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.5, marginBottom: 12 }}>
           Built from your mock call scores, objection drills, practice consistency and story bank. Practice moves it.
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(80px, 1fr))', gap: 10 }}>
+        <div className="grid-2up" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(80px, 1fr))', gap: 10 }}>
           {parts.map(p => (
             <div key={p.label} onClick={() => router.push(p.href)} style={{ cursor: 'pointer' }}>
               <div className="scc-num" style={{ fontWeight: 700, fontSize: 19, color: p.value > 0 ? 'var(--ink)' : 'var(--muted-3)' }}>{p.value}</div>

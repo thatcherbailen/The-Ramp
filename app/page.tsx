@@ -128,7 +128,7 @@ export default function TodayPage() {
         </div>
       )}
 
-      <div className="grid-2up" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14, marginBottom: 20, alignItems: 'stretch' }}>
+      <div className="today-hero" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14, marginBottom: 20, alignItems: 'stretch' }}>
         <ReadinessCard />
         <StreakBadge />
       </div>
