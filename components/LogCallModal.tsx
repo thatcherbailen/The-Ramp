@@ -39,6 +39,7 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
       appointmentBooked: !!f.appointmentBooked,
       appointmentDate: f.appointmentDate,
       jobValue: f.jobValue,
+      dealClosed: !!f.dealClosed,
       objection: f.objection || 'None',
       tone: f.tone || 'Neutral',
       response: f.response || '',
@@ -119,7 +120,15 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
         </div>
 
         {f.appointmentBooked && (
-          <div>{lbl('Job value (if it closes)')}{inp('jobValue', '$14,000')}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 14, alignItems: 'end' }}>
+            <div>{lbl('Deal value (if it closes)')}{inp('jobValue', '$14,000')}</div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', height: 44 }}>
+              <input type="checkbox" checked={!!f.dealClosed}
+                onChange={e => update({ dealClosed: e.target.checked })}
+                style={{ accentColor: '#3F8F5B', width: 16, height: 16 }} />
+              <span style={{ fontSize: 14, fontWeight: 600 }}>Deal closed</span>
+            </label>
+          </div>
         )}
 
         <div>

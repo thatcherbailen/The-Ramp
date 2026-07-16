@@ -316,10 +316,10 @@ input[type="time"].form-input::-webkit-calendar-picker-indicator:hover { opacity
   .today-title { font-size: 46px; }
 }
 
-/* Floating "add task" button — clears the bottom on desktop, sits above the
-   floating mobile nav pill on phones. */
+/* Floating "add task" button — clears the bottom on desktop and on phones
+   (the mobile nav is now a top bar, so nothing floats over the bottom). */
 .task-fab { bottom: 28px; }
-@media (max-width: 768px) { .task-fab { bottom: calc(90px + env(safe-area-inset-bottom)); } }
+@media (max-width: 768px) { .task-fab { bottom: calc(24px + env(safe-area-inset-bottom)); } }
 
 /* Utility: hide non-essential / decorative content on phones */
 @media (max-width: 768px) { .hide-mobile { display: none !important; } }
@@ -329,8 +329,8 @@ input[type="time"].form-input::-webkit-calendar-picker-indicator:hover { opacity
   .modal-overlay { padding: 16px; }
   .modal-box { padding: 20px; }
 
-  /* Tighter page gutters + clearance for the floating bottom nav */
-  .main-content { padding: 16px 15px 112px !important; }
+  /* Tighter page gutters + clearance for the fixed top burger bar */
+  .main-content { padding: calc(72px + env(safe-area-inset-top)) 15px 28px !important; }
 
   /* Page headers: stack vertically, hide the big decorative count */
   .page-head {

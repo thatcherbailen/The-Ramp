@@ -5,7 +5,7 @@ import { Call } from '@/lib/types';
 import LogCallModal from '@/components/LogCallModal';
 import DotMenu from '@/components/DotMenu';
 
-type Tab = 'log' | 'dashboard' | 'stories';
+type Tab = 'log' | 'meetings' | 'dashboard' | 'stories';
 
 const OUTCOME_COLORS: Record<string, {bg:string,color:string}> = {
   'Appointment booked': { bg: '#E8F5EE', color: '#3F8F5B' },
@@ -33,31 +33,48 @@ export default function CallsPage() {
   // fall back to date for any legacy call without a number.
   const load = () => setCalls(getCalls().sort((a,b) => (b.callNumber || 0) - (a.callNumber || 0) || b.date.localeCompare(a.date)));
   useEffect(() => { load(); }, [logOpen, editCall]);
+  // Never strand on the Meetings tab if the last booked meeting is removed.
+  useEffect(() => { if (tab === 'meetings' && !calls.some(c => c.appointmentBooked)) setTab('log'); }, [tab, calls]);
 
-  const apptCount = calls.filter(c => c.appointmentBooked).length;
-  const avgConf = calls.length ? (calls.reduce((s,c) => s+c.confidence,0)/calls.length).toFixed(1) : '—';
-  const stories = calls.filter(c => c.isInterviewStory);
+  // Toggle whether a booked meeting turned into a closed (won) deal.
+  const toggleClosed = (c: Call) => { saveCall({ ...c, dealClosed: !c.dealClosed }); load(); };
 
   const dollars = (v?: string) => { const n = parseFloat((v || '').replace(/[^0-9.]/g, '')); return isNaN(n) ? 0 : n; };
-  const closedCalls = calls.filter(c => dollars(c.jobValue) > 0);
-  const revenue = closedCalls.reduce((s,c) => s + dollars(c.jobValue), 0);
-  const voicemails = calls.filter(c => c.outcome === 'Voicemail').length;
+
+  // Meetings booked, ordered by the date they're booked FOR (soonest first).
+  const meetings = calls
+    .filter(c => c.appointmentBooked)
+    .sort((a,b) => (a.appointmentDate || '9999').localeCompare(b.appointmentDate || '9999'));
+  const apptCount = meetings.length;
+  const closedMeetings = meetings.filter(c => c.dealClosed);
+  const openMeetings = meetings.filter(c => !c.dealClosed);
+  // Actual revenue = value of meetings that closed. Potential revenue = value
+  // still in play (booked but not yet closed).
+  const actualRevenue = closedMeetings.reduce((s,c) => s + dollars(c.jobValue), 0);
+  const potentialRevenue = openMeetings.reduce((s,c) => s + dollars(c.jobValue), 0);
+
+  const avgConf = calls.length ? (calls.reduce((s,c) => s+c.confidence,0)/calls.length).toFixed(1) : '—';
+  const stories = calls.filter(c => c.isInterviewStory);
   const objectionsHandled = calls.filter(c => c.objection !== 'None').length;
 
   const objBreak = calls.reduce((m,c) => { m[c.objection] = (m[c.objection]||0)+1; return m; }, {} as Record<string,number>);
   const outBreak = calls.reduce((m,c) => { m[c.outcome] = (m[c.outcome]||0)+1; return m; }, {} as Record<string,number>);
 
+  const money = (n: number) => `$${n.toLocaleString('en-AU')}`;
   const statsArr = [
     { label:'Total calls', value: calls.length, coral:false },
     { label:'Appts booked', value: apptCount, coral:false },
     { label:'Appt rate', value: calls.length ? `${Math.round(apptCount/calls.length*100)}%` : '0%', coral:true },
-    { label:'Sales closed', value: closedCalls.length, coral:false },
-    { label:'Revenue', value: `$${revenue.toLocaleString('en-AU')}`, coral:false },
+    { label:'Deals closed', value: closedMeetings.length, coral:false },
+    { label:'Potential revenue', value: money(potentialRevenue), coral:false },
+    { label:'Actual revenue', value: money(actualRevenue), coral:true },
     { label:'Avg confidence', value: avgConf, coral:false },
     { label:'Interview stories', value: stories.length, coral:false },
-    { label:'Voicemails', value: voicemails, coral:false },
     { label:'Objections handled', value: objectionsHandled, coral:false },
   ];
+
+  const TABS: Tab[] = ['log', ...(apptCount ? ['meetings' as Tab] : []), 'dashboard', 'stories'];
+  const tabLabel = (t: Tab) => t === 'log' ? 'Call Log' : t === 'meetings' ? `Meetings (${apptCount})` : t === 'dashboard' ? 'Dashboard' : 'Stories';
 
   return (
     <div>
@@ -79,9 +96,9 @@ export default function CallsPage() {
 
       {/* Tab bar */}
       <div className="scroll-x" style={{ display:'flex', borderBottom:'1px solid var(--line)', marginBottom:22 }}>
-        {(['log','dashboard','stories'] as Tab[]).map(t => (
+        {TABS.map(t => (
           <button key={t} className={`tab-btn${tab===t?' active':''}`} onClick={() => setTab(t)}>
-            {t === 'log' ? 'Call Log' : t === 'dashboard' ? 'Dashboard' : 'Stories'}
+            {tabLabel(t)}
           </button>
         ))}
       </div>
@@ -156,6 +173,66 @@ export default function CallsPage() {
           </div>
           </>
         )
+      )}
+
+      {/* MEETINGS TAB */}
+      {tab === 'meetings' && (
+        <div>
+          {/* Revenue summary */}
+          <div className="grid-2up" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:20 }}>
+            <div className="card" style={{ padding:'18px 22px' }}>
+              <div style={{ fontSize:10, fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:'var(--muted)', marginBottom:6 }}>Meetings booked</div>
+              <div className="scc-num" style={{ fontWeight:300, fontSize:42, color:'var(--ink)' }}>{apptCount}</div>
+            </div>
+            <div className="card" style={{ padding:'18px 22px' }}>
+              <div style={{ fontSize:10, fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:'var(--muted)', marginBottom:6 }}>Potential revenue</div>
+              <div className="scc-num" style={{ fontWeight:300, fontSize:42, color:'var(--ink)' }}>{money(potentialRevenue)}</div>
+            </div>
+            <div className="card" style={{ padding:'18px 22px' }}>
+              <div style={{ fontSize:10, fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:'var(--muted)', marginBottom:6 }}>Actual revenue</div>
+              <div className="scc-num" style={{ fontWeight:300, fontSize:42, color:'#F5552E' }}>{money(actualRevenue)}</div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="table-head" style={{ display:'grid', gridTemplateColumns:'1.6fr 130px 130px 120px 60px', gap:14, padding:'13px 22px', background:'var(--card-2)', borderTopLeftRadius:18, borderTopRightRadius:18, fontSize:10, fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:'var(--muted)' }}>
+              <div>Lead · source</div><div>Meeting date</div><div>Value</div><div>Status</div><div></div>
+            </div>
+            {meetings.map(c => (
+              <div key={c.id} style={{ display:'grid', gridTemplateColumns:'1.6fr 130px 130px 120px 60px', gap:14, alignItems:'center', padding:'15px 22px', borderTop:'1px solid var(--line-3)' }}>
+                <div style={{ minWidth:0 }}>
+                  <div style={{ fontWeight:700, fontSize:15, letterSpacing:'-.01em' }}>{c.lead}</div>
+                  <div style={{ fontSize:12, color:'var(--muted)', marginTop:1 }}>{c.source} · call #{c.callNumber}</div>
+                </div>
+                <div style={{ fontSize:13, fontWeight:600, color:'var(--ink-2)' }}>{c.appointmentDate || '—'}</div>
+                <div className="scc-num" style={{ fontSize:14, fontWeight:700, color: c.jobValue ? 'var(--ink)' : 'var(--muted-3)' }}>{c.jobValue || '—'}</div>
+                <div>
+                  <button
+                    onClick={() => toggleClosed(c)}
+                    style={{
+                      display:'inline-flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:999,
+                      border:`1px solid ${c.dealClosed ? '#3F8F5B' : 'var(--line-2)'}`,
+                      background: c.dealClosed ? '#E8F5EE' : 'var(--card)',
+                      color: c.dealClosed ? '#3F8F5B' : 'var(--muted)',
+                      fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap',
+                    }}
+                  >
+                    {c.dealClosed ? '✓ Closed' : 'Mark closed'}
+                  </button>
+                </div>
+                <div style={{ display:'flex', justifyContent:'flex-end' }}>
+                  <DotMenu actions={[
+                    { label:'Edit', onClick:() => setEditCall(c) },
+                    { label: c.dealClosed ? 'Reopen' : 'Mark closed', onClick:() => toggleClosed(c) },
+                  ]} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize:12, color:'var(--muted)', marginTop:12, lineHeight:1.5 }}>
+            Meetings are ordered by the date they&apos;re booked for. Mark one closed when the deal lands — its value moves from potential into actual revenue.
+          </div>
+        </div>
       )}
 
       {/* DASHBOARD TAB */}

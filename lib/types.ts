@@ -92,6 +92,7 @@ export interface Call {
   appointmentBooked: boolean;
   appointmentDate?: string;
   jobValue?: string;
+  dealClosed?: boolean;
   objection: string;
   tone: string;
   response: string;
