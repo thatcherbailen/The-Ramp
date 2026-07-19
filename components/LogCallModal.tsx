@@ -12,7 +12,7 @@ const TONES = ['Warm', 'Neutral', 'Cold', 'Hostile', 'Interested'];
 const BLANK: Partial<Call> = {
   lead: '', source: 'Cold call', callNumber: 1, duration: '', outcome: 'Voicemail',
   confidence: 5, appointmentBooked: false, appointmentDate: '', objection: 'None',
-  tone: 'Neutral', response: '', worked: '', improve: '', isInterviewStory: false, storyTitle: '',
+  tone: 'Neutral', response: '', worked: '', improve: '', notes: '', isInterviewStory: false, storyTitle: '',
 };
 
 export default function LogCallModal({ onClose, initial }: { onClose: () => void; initial?: Partial<Call> }) {
@@ -45,6 +45,7 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
       response: f.response || '',
       worked: f.worked || '',
       improve: f.improve || '',
+      notes: f.notes || '',
       isInterviewStory: !!f.isInterviewStory,
       storyTitle: f.storyTitle,
     };
@@ -93,11 +94,13 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
 
         <div>{lbl('Outcome')}{sel('outcome', OUTCOMES)}</div>
 
-        <div>
-          {lbl(`Confidence (1–10) — ${f.confidence}`)}
-          <input type="range" min={1} max={10} value={f.confidence || 5}
+        {/* No-answer calls have no conversation to rate, so confidence is greyed
+            out and excluded from the overall confidence score. */}
+        <div style={{ opacity: f.outcome === 'No answer' ? 0.45 : 1 }}>
+          {lbl(f.outcome === 'No answer' ? 'Confidence — not counted for no-answer calls' : `Confidence (1–10) — ${f.confidence}`)}
+          <input type="range" min={1} max={10} value={f.confidence || 5} disabled={f.outcome === 'No answer'}
             onChange={e => update({ confidence: Number(e.target.value) })}
-            style={{ width: '100%', accentColor: '#F5552E' }} />
+            style={{ width: '100%', accentColor: f.outcome === 'No answer' ? 'var(--muted-2)' : '#F5552E' }} />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
@@ -142,6 +145,8 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
           <div>{lbl('What worked')}{txt('worked', 'Warm opener, stayed calm, asked a good qualifying question…')}</div>
           <div>{lbl('What to improve')}{txt('improve', 'Paused too long before pitching, forgot to ask for the next step…')}</div>
         </div>
+
+        <div>{lbl('Anything else worth noting')}{txt('notes', 'Follow-up angle, a detail about the lead, an idea to try next time…')}</div>
 
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
           <input type="checkbox" checked={!!f.isInterviewStory}

@@ -56,9 +56,21 @@ export default function CallsPage() {
   const actualRevenue = closedMeetings.reduce((s,c) => s + dollars(c.jobValue), 0);
   const potentialRevenue = openMeetings.reduce((s,c) => s + dollars(c.jobValue), 0);
 
-  const avgConf = calls.length ? (calls.reduce((s,c) => s+c.confidence,0)/calls.length).toFixed(1) : '—';
+  // Average confidence ignores "No answer" calls — there was no conversation,
+  // so their score shouldn't drag the overall confidence number.
+  const scoredCalls = calls.filter(c => c.outcome !== 'No answer');
+  const avgConf = scoredCalls.length ? (scoredCalls.reduce((s,c) => s+c.confidence,0)/scoredCalls.length).toFixed(1) : '—';
   const stories = calls.filter(c => c.isInterviewStory);
   const objectionsHandled = calls.filter(c => c.objection !== 'None').length;
+
+  // Call-insight overview: aggregate the free-text reflections across calls
+  // into three buckets for the dashboard, newest first, tagged with the lead.
+  const insight = (field: 'worked' | 'improve' | 'notes') =>
+    calls.filter(c => (c[field] as string || '').trim())
+      .map(c => ({ id: c.id, lead: c.lead, date: c.date, text: (c[field] as string).trim() }));
+  const wins = insight('worked');
+  const improves = insight('improve');
+  const noteworthy = insight('notes');
 
   const objBreak = calls.reduce((m,c) => { m[c.objection] = (m[c.objection]||0)+1; return m; }, {} as Record<string,number>);
   const outBreak = calls.reduce((m,c) => { m[c.outcome] = (m[c.outcome]||0)+1; return m; }, {} as Record<string,number>);
@@ -125,7 +137,11 @@ export default function CallsPage() {
                     <div style={{ fontSize:12, color:'var(--muted)', marginTop:1 }}>{c.source} · {c.date}</div>
                   </div>
                   <div style={pillStyle(c.outcome) as React.CSSProperties}>{c.outcome}</div>
-                  <div style={{ fontSize:14, fontWeight:700, color: c.confidence >= 7 ? '#3F8F5B' : c.confidence >= 4 ? 'var(--muted)' : 'var(--accent-ink)' }}>{c.confidence}/10</div>
+                  {c.outcome === 'No answer' ? (
+                    <div title="Not counted — no conversation to rate" style={{ fontSize:14, fontWeight:600, color:'var(--muted-3)' }}>—</div>
+                  ) : (
+                    <div style={{ fontSize:14, fontWeight:700, color: c.confidence >= 7 ? '#3F8F5B' : c.confidence >= 4 ? 'var(--muted)' : 'var(--accent-ink)' }}>{c.confidence}/10</div>
+                  )}
                   <div style={{ fontSize:13, color: c.appointmentBooked ? '#3F8F5B' : 'var(--muted-2)', fontWeight: c.appointmentBooked ? 700 : 500 }}>
                     {c.appointmentBooked ? `✓ ${c.appointmentDate || 'Booked'}${c.jobValue ? ` · ${c.jobValue}` : ''}` : '—'}
                   </div>
@@ -249,9 +265,17 @@ export default function CallsPage() {
               </div>
             ))}
           </div>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:18 }}>
             <BreakdownCard title="Objection breakdown" data={objBreak} total={calls.length} />
             <BreakdownCard title="Outcome breakdown" data={outBreak} total={calls.length} />
+          </div>
+
+          {/* Call insights — what's working, what to improve, worth noting */}
+          <div style={{ fontSize:10, fontWeight:700, letterSpacing:'.14em', textTransform:'uppercase', color:'var(--muted)', margin:'4px 2px 12px' }}>Call insights</div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:16 }}>
+            <InsightColumn title="What's working" accent="#3F8F5B" items={wins} empty="Note what worked on a call — it collects here." />
+            <InsightColumn title="To improve" accent="var(--accent-ink)" items={improves} empty="Jot what to improve — it collects here." />
+            <InsightColumn title="Worth noting" accent="var(--ink-2b)" items={noteworthy} empty="Anything else worth remembering shows here." />
           </div>
         </div>
       )}
@@ -294,6 +318,29 @@ export default function CallsPage() {
 
       {logOpen && <LogCallModal onClose={() => { setLogOpen(false); load(); }} />}
       {editCall && <LogCallModal initial={editCall} onClose={() => { setEditCall(null); load(); }} />}
+    </div>
+  );
+}
+
+function InsightColumn({ title, accent, items, empty }: { title:string; accent:string; items:{id:string;lead:string;date:string;text:string}[]; empty:string }) {
+  return (
+    <div className="card" style={{ padding:'18px 20px', display:'flex', flexDirection:'column' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+        <div style={{ fontSize:10, fontWeight:700, letterSpacing:'.12em', textTransform:'uppercase', color:accent }}>{title}</div>
+        <div className="scc-num" style={{ fontSize:12, fontWeight:700, color:'var(--muted-2)' }}>{items.length}</div>
+      </div>
+      {items.length === 0 ? (
+        <div style={{ fontSize:12.5, color:'var(--muted-2)', lineHeight:1.5 }}>{empty}</div>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+          {items.map(it => (
+            <div key={it.id} style={{ borderLeft:`2px solid ${accent}`, paddingLeft:11 }}>
+              <div style={{ fontSize:13, fontWeight:500, color:'var(--ink-2)', lineHeight:1.45 }}>{it.text}</div>
+              <div style={{ fontSize:10.5, fontWeight:600, letterSpacing:'.03em', color:'var(--muted-2)', marginTop:3 }}>{it.lead} · {it.date}</div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

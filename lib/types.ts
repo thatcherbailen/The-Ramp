@@ -98,6 +98,7 @@ export interface Call {
   response: string;
   worked: string;
   improve: string;
+  notes?: string;
   isInterviewStory: boolean;
   storyTitle?: string;
 }
