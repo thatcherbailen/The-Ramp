@@ -1,6 +1,6 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { getCalls, deleteCall, saveCall } from '@/lib/store';
+import { useState, useEffect, useCallback } from 'react';
+import { getCalls, deleteCall, saveCall, getCallInsights, saveCallInsights, CallInsights } from '@/lib/store';
 import { Call } from '@/lib/types';
 import LogCallModal from '@/components/LogCallModal';
 import DotMenu from '@/components/DotMenu';
@@ -27,6 +27,9 @@ export default function CallsPage() {
   const [calls, setCalls] = useState<Call[]>([]);
   const [logOpen, setLogOpen] = useState(false);
   const [editCall, setEditCall] = useState<Call|null>(null);
+  const [insights, setInsights] = useState<CallInsights|null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsError, setInsightsError] = useState('');
 
   // Latest call at the top. Sort by call number (the running counter) so the
   // "#" column reads cleanly descending and always matches the actual call;
@@ -63,14 +66,51 @@ export default function CallsPage() {
   const stories = calls.filter(c => c.isInterviewStory);
   const objectionsHandled = calls.filter(c => c.objection !== 'None').length;
 
-  // Call-insight overview: aggregate the free-text reflections across calls
-  // into three buckets for the dashboard, newest first, tagged with the lead.
-  const insight = (field: 'worked' | 'improve' | 'notes') =>
-    calls.filter(c => (c[field] as string || '').trim())
-      .map(c => ({ id: c.id, lead: c.lead, date: c.date, text: (c[field] as string).trim() }));
-  const wins = insight('worked');
-  const improves = insight('improve');
-  const noteworthy = insight('notes');
+  // Calls that carry any written reflection — the raw material for the AI
+  // growth summary. A lightweight signature lets us cache the summary and only
+  // regenerate when the reflections actually change.
+  const reflectionCalls = calls.filter(c => (c.worked || '').trim() || (c.improve || '').trim() || (c.notes || '').trim());
+  // Order-independent signature: the summary depends on the reflection content,
+  // not the display order, so sort the parts before joining. Editing a note or
+  // adding a call changes it (regenerate); re-sorting the list doesn't.
+  const insightSig = reflectionCalls.map(c => `${c.id}:${c.worked}|${c.improve}|${c.notes || ''}`).sort().join('~~');
+  const enoughForInsights = reflectionCalls.length >= 2;
+
+  const generateInsights = useCallback(async (force = false) => {
+    const cached = getCallInsights();
+    if (!force && cached && cached.sig === insightSig) { setInsights(cached.data); return; }
+    if (!force && insightsLoading) return;
+    setInsightsLoading(true);
+    setInsightsError('');
+    try {
+      const res = await fetch('/api/call-insights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reflections: reflectionCalls.map(c => ({ lead: c.lead, outcome: c.outcome, confidence: c.confidence, worked: c.worked, improve: c.improve, notes: c.notes || '' })) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Something went wrong');
+      setInsights(data);
+      saveCallInsights(insightSig, data);
+    } catch (err) {
+      setInsightsError(err instanceof Error ? err.message : 'Couldn\'t generate your growth summary just now.');
+    } finally {
+      setInsightsLoading(false);
+    }
+  // reflectionCalls/insightSig are derived from calls; insightSig captures the
+  // meaningful change, so key the callback on it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [insightSig]);
+
+  // On the dashboard, load a cached summary that matches, or auto-generate one
+  // when there's enough reflection material and the notes have changed.
+  useEffect(() => {
+    if (tab !== 'dashboard') return;
+    const cached = getCallInsights();
+    if (cached && cached.sig === insightSig) { setInsights(cached.data); return; }
+    if (enoughForInsights) generateInsights();
+    else setInsights(null);
+  }, [tab, insightSig, enoughForInsights, generateInsights]);
 
   const objBreak = calls.reduce((m,c) => { m[c.objection] = (m[c.objection]||0)+1; return m; }, {} as Record<string,number>);
   const outBreak = calls.reduce((m,c) => { m[c.outcome] = (m[c.outcome]||0)+1; return m; }, {} as Record<string,number>);
@@ -270,13 +310,37 @@ export default function CallsPage() {
             <BreakdownCard title="Outcome breakdown" data={outBreak} total={calls.length} />
           </div>
 
-          {/* Call insights — what's working, what to improve, worth noting */}
-          <div style={{ fontSize:10, fontWeight:700, letterSpacing:'.14em', textTransform:'uppercase', color:'var(--muted)', margin:'4px 2px 12px' }}>Call insights</div>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:16 }}>
-            <InsightColumn title="What's working" accent="#3F8F5B" items={wins} empty="Note what worked on a call — it collects here." />
-            <InsightColumn title="To improve" accent="var(--accent-ink)" items={improves} empty="Jot what to improve — it collects here." />
-            <InsightColumn title="Worth noting" accent="var(--ink-2b)" items={noteworthy} empty="Anything else worth remembering shows here." />
+          {/* Call insights — an AI summary of core growth areas, not a list */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', margin:'4px 2px 12px' }}>
+            <div style={{ fontSize:10, fontWeight:700, letterSpacing:'.14em', textTransform:'uppercase', color:'var(--muted)' }}>Call insights · Growth summary</div>
+            {enoughForInsights && (
+              <button onClick={() => generateInsights(true)} disabled={insightsLoading}
+                style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:999, border:'1px solid var(--line-2)', background:'var(--card)', color:'var(--muted)', fontSize:12, fontWeight:600, cursor: insightsLoading ? 'default' : 'pointer', fontFamily:'inherit', opacity: insightsLoading ? 0.6 : 1 }}>
+                {insightsLoading ? 'Analysing…' : '↻ Refresh'}
+              </button>
+            )}
           </div>
+
+          {!enoughForInsights ? (
+            <div className="card" style={{ padding:'28px 24px', textAlign:'center', color:'var(--muted)' }}>
+              <div style={{ fontWeight:700, fontSize:15, color:'var(--ink)', marginBottom:6 }}>Your growth summary builds itself</div>
+              <div style={{ fontSize:13, lineHeight:1.55, maxWidth:440, margin:'0 auto' }}>Log a couple of calls with a note on what worked or what to improve, and this turns them into a short read on your core strengths and areas to develop.</div>
+            </div>
+          ) : insightsLoading && !insights ? (
+            <div className="card" style={{ padding:'28px 24px', textAlign:'center', color:'var(--muted)', fontSize:13.5 }}>Reading through your reflections…</div>
+          ) : insightsError && !insights ? (
+            <div className="card" style={{ padding:'22px 24px', color:'var(--muted)', fontSize:13.5, lineHeight:1.5 }}>{insightsError}</div>
+          ) : insights ? (
+            <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+              <div className="card" style={{ padding:'20px 24px', background:'var(--card-2)' }}>
+                <div style={{ fontSize:14.5, fontWeight:500, color:'var(--ink-2)', lineHeight:1.6 }}>{insights.summary}</div>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+                <InsightThemes title="Core strengths" accent="#3F8F5B" items={insights.strengths} />
+                <InsightThemes title="Areas to develop" accent="var(--accent-ink)" items={insights.growth} />
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -322,21 +386,18 @@ export default function CallsPage() {
   );
 }
 
-function InsightColumn({ title, accent, items, empty }: { title:string; accent:string; items:{id:string;lead:string;date:string;text:string}[]; empty:string }) {
+function InsightThemes({ title, accent, items }: { title:string; accent:string; items:{title:string;note:string}[] }) {
   return (
     <div className="card" style={{ padding:'18px 20px', display:'flex', flexDirection:'column' }}>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-        <div style={{ fontSize:10, fontWeight:700, letterSpacing:'.12em', textTransform:'uppercase', color:accent }}>{title}</div>
-        <div className="scc-num" style={{ fontSize:12, fontWeight:700, color:'var(--muted-2)' }}>{items.length}</div>
-      </div>
-      {items.length === 0 ? (
-        <div style={{ fontSize:12.5, color:'var(--muted-2)', lineHeight:1.5 }}>{empty}</div>
+      <div style={{ fontSize:10, fontWeight:700, letterSpacing:'.12em', textTransform:'uppercase', color:accent, marginBottom:14 }}>{title}</div>
+      {(!items || items.length === 0) ? (
+        <div style={{ fontSize:12.5, color:'var(--muted-2)', lineHeight:1.5 }}>Nothing clear yet — keep logging calls.</div>
       ) : (
-        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-          {items.map(it => (
-            <div key={it.id} style={{ borderLeft:`2px solid ${accent}`, paddingLeft:11 }}>
-              <div style={{ fontSize:13, fontWeight:500, color:'var(--ink-2)', lineHeight:1.45 }}>{it.text}</div>
-              <div style={{ fontSize:10.5, fontWeight:600, letterSpacing:'.03em', color:'var(--muted-2)', marginTop:3 }}>{it.lead} · {it.date}</div>
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          {items.map((it, i) => (
+            <div key={i} style={{ borderLeft:`2px solid ${accent}`, paddingLeft:12 }}>
+              <div style={{ fontSize:13.5, fontWeight:700, color:'var(--ink)', letterSpacing:'-.01em' }}>{it.title}</div>
+              <div style={{ fontSize:12.5, fontWeight:500, color:'var(--ink-2b)', lineHeight:1.45, marginTop:2 }}>{it.note}</div>
             </div>
           ))}
         </div>

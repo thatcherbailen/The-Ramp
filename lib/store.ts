@@ -213,6 +213,22 @@ export function deleteNote(id: string) { save('scc_notes', getNotes().filter(x =
 export function getSettings(): Settings { return { ...DEFAULT_SETTINGS, ...load(KEYS.settings, {}) }; }
 export function saveSettings(s: Settings) { save(KEYS.settings, s); }
 
+// ── Call insights (AI growth summary, cached by input signature) ──────
+// The dashboard summary is generated from the call reflections. We cache the
+// result alongside a signature of those reflections so it only regenerates
+// when the underlying notes actually change (avoids a call on every view).
+export interface CallInsights {
+  summary: string;
+  strengths: { title: string; note: string }[];
+  growth: { title: string; note: string }[];
+}
+export function getCallInsights(): { sig: string; data: CallInsights } | null {
+  return load<{ sig: string; data: CallInsights } | null>('scc_call_insights', null);
+}
+export function saveCallInsights(sig: string, data: CallInsights) {
+  save('scc_call_insights', { sig, data });
+}
+
 // ── Practice streak ──────────────────────────────────────────────────
 // One entry per calendar day (YYYY-MM-DD) a drill (objection or story) was
 // completed. Dedup'd on write so repeated reps in a day don't double count.
