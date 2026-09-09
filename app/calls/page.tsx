@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { getCalls, deleteCall, saveCall, getCallInsights, saveCallInsights, CallInsights, getActivities, deleteActivity, logActivity } from '@/lib/store';
+import { getCalls, deleteCall, saveCall, getCallInsights, saveCallInsights, CallInsights, getActivities, deleteActivity, logActivity, renumberCalls, getSettings, saveSettings } from '@/lib/store';
 import { Call, Activity, ActivityType } from '@/lib/types';
 import { RANGES, RangeKey, rangeStart, buildBuckets, bucketValues } from '@/lib/analytics';
 import LogCallModal from '@/components/LogCallModal';
@@ -8,7 +8,7 @@ import DotMenu from '@/components/DotMenu';
 
 const TODAY = () => new Date().toISOString().slice(0, 10);
 
-type Tab = 'log' | 'meetings' | 'dashboard' | 'stories';
+type Tab = 'log' | 'meetings' | 'followups' | 'dashboard' | 'stories';
 
 const OUTCOME_COLORS: Record<string, {bg:string,color:string}> = {
   'Appointment booked': { bg: '#E8F5EE', color: '#3F8F5B' },
@@ -36,6 +36,10 @@ export default function CallsPage() {
   const [insights, setInsights] = useState<CallInsights|null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsError, setInsightsError] = useState('');
+  const [dragIndex, setDragIndex] = useState<number|null>(null);
+  const [overIndex, setOverIndex] = useState<number|null>(null);
+  const [maxFollowUps, setMaxFollowUps] = useState(3);
+  useEffect(() => { setMaxFollowUps(getSettings().maxFollowUps ?? 3); }, []);
 
   // Latest call at the top. Sort by call number (the running counter) so the
   // "#" column reads cleanly descending and always matches the actual call;
@@ -59,11 +63,37 @@ export default function CallsPage() {
     const last = [...arr].sort((a,b) => (b.ts || 0) - (a.ts || 0))[0];
     deleteActivity(last.id); setActivities([...getActivities()]);
   };
-  // Never strand on the Meetings tab if the last booked meeting is removed.
-  useEffect(() => { if (tab === 'meetings' && !calls.some(c => c.appointmentBooked)) setTab('log'); }, [tab, calls]);
+  // Never strand on a tab whose contents just emptied out.
+  useEffect(() => {
+    if (tab === 'meetings' && !calls.some(c => c.appointmentBooked)) setTab('log');
+    if (tab === 'followups' && !calls.some(c => c.followUp && (c.followUpStatus ?? 'active') === 'active')) setTab('log');
+  }, [tab, calls]);
 
   // Toggle whether a booked meeting turned into a closed (won) deal.
   const toggleClosed = (c: Call) => { saveCall({ ...c, dealClosed: !c.dealClosed }); load(); };
+
+  // Drag-to-reorder in the log. `calls` is shown newest-first (callNumber desc);
+  // after a move we renumber so the sequence stays contiguous in the new order.
+  const handleDrop = (dropIdx: number) => {
+    if (dragIndex === null || dragIndex === dropIdx) { setDragIndex(null); setOverIndex(null); return; }
+    const arr = [...calls];
+    const [moved] = arr.splice(dragIndex, 1);
+    arr.splice(dropIdx, 0, moved);
+    renumberCalls([...arr].reverse()); // arr is desc display order; asc = reversed
+    setDragIndex(null); setOverIndex(null);
+    load();
+  };
+
+  // Follow-up pipeline actions.
+  const activeFollowUps = calls.filter(c => c.followUp && (c.followUpStatus ?? 'active') === 'active');
+  const logFollowUp = (c: Call) => {
+    const next = new Date(); next.setDate(next.getDate() + 7);
+    saveCall({ ...c, followUpCount: (c.followUpCount || 0) + 1, followUpNextDate: next.toISOString().slice(0, 10) });
+    logActivity('Call');
+    load();
+  };
+  const setFollowUpStatus = (c: Call, status: Call['followUpStatus']) => { saveCall({ ...c, followUpStatus: status }); load(); };
+  const changeMaxFollowUps = (n: number) => { const v = Math.max(1, Math.min(10, n)); saveSettings({ ...getSettings(), maxFollowUps: v }); setMaxFollowUps(v); };
 
   const dollars = (v?: string) => { const n = parseFloat((v || '').replace(/[^0-9.]/g, '')); return isNaN(n) ? 0 : n; };
 
@@ -176,8 +206,8 @@ export default function CallsPage() {
     { label:'Objections handled', value: dCalls.filter(c => c.objection !== 'None').length, coral:false },
   ];
 
-  const TABS: Tab[] = ['dashboard', 'log', ...(apptCount ? ['meetings' as Tab] : []), 'stories'];
-  const tabLabel = (t: Tab) => t === 'log' ? 'Call Log' : t === 'meetings' ? `Meetings (${apptCount})` : t === 'dashboard' ? 'Dashboard' : 'Stories';
+  const TABS: Tab[] = ['dashboard', 'log', ...(apptCount ? ['meetings' as Tab] : []), ...(activeFollowUps.length ? ['followups' as Tab] : []), 'stories'];
+  const tabLabel = (t: Tab) => t === 'log' ? 'Call Log' : t === 'meetings' ? `Meetings (${apptCount})` : t === 'followups' ? `Follow-ups (${activeFollowUps.length})` : t === 'dashboard' ? 'Dashboard' : 'Stories';
 
   return (
     <div>
@@ -213,13 +243,25 @@ export default function CallsPage() {
         ) : (
           <>
           <div className="card hidden md:block">
-            <div style={{ display:'grid', gridTemplateColumns:'34px 1.6fr 150px 58px 116px 60px', gap:14, padding:'13px 22px', background:'var(--card-2)', borderTopLeftRadius:18, borderTopRightRadius:18, fontSize:10, fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:'var(--muted)' }}>
+            <div style={{ display:'grid', gridTemplateColumns:'52px 1.6fr 150px 58px 116px 60px', gap:14, padding:'13px 22px', background:'var(--card-2)', borderTopLeftRadius:18, borderTopRightRadius:18, fontSize:10, fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:'var(--muted)' }}>
               <div>#</div><div>Lead · source</div><div>Outcome</div><div>Conf</div><div>Appointment</div><div></div>
             </div>
             {calls.map((c,i) => (
-              <div key={c.id} style={{ padding:'15px 22px', borderTop:'1px solid var(--line-3)' }}>
-                <div style={{ display:'grid', gridTemplateColumns:'34px 1.6fr 150px 58px 116px 60px', gap:14, alignItems:'center' }}>
-                  <div className="scc-num" style={{ fontWeight:600, color:'var(--muted-3)', fontSize:14 }}>{c.callNumber || i+1}</div>
+              <div key={c.id}
+                className={`call-row${dragIndex===i?' dragging':''}${overIndex===i && dragIndex!==null && dragIndex!==i?' drag-over':''}`}
+                onDragOver={e => { if (dragIndex!==null) { e.preventDefault(); setOverIndex(i); } }}
+                onDrop={() => handleDrop(i)}
+                style={{ padding:'15px 22px', borderTop:'1px solid var(--line-3)' }}>
+                <div style={{ display:'grid', gridTemplateColumns:'52px 1.6fr 150px 58px 116px 60px', gap:14, alignItems:'center' }}>
+                  <div
+                    draggable
+                    onDragStart={() => setDragIndex(i)}
+                    onDragEnd={() => { setDragIndex(null); setOverIndex(null); }}
+                    title="Drag to reorder"
+                    style={{ display:'flex', alignItems:'center', gap:5 }}>
+                    <span className="drag-grip" aria-hidden><GripIcon /></span>
+                    <span className="scc-num" style={{ fontWeight:600, color:'var(--muted-3)', fontSize:14 }}>{c.callNumber || i+1}</span>
+                  </div>
                   <div>
                     <div style={{ fontWeight:700, fontSize:15, letterSpacing:'-.01em' }}>{c.lead}</div>
                     <div style={{ fontSize:12, color:'var(--muted)', marginTop:1 }}>{c.source} · {c.date}</div>
@@ -339,6 +381,73 @@ export default function CallsPage() {
           <div style={{ fontSize:12, color:'var(--muted)', marginTop:12, lineHeight:1.5 }}>
             Meetings are ordered by the date they&apos;re booked for. Mark one closed when the deal lands — its value moves from potential into actual revenue.
           </div>
+        </div>
+      )}
+
+      {/* FOLLOW-UPS TAB */}
+      {tab === 'followups' && (
+        <div>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, marginBottom:16, flexWrap:'wrap' }}>
+            <div style={{ fontSize:13, color:'var(--muted)', lineHeight:1.5, maxWidth:520 }}>
+              Leads to call back, grouped by how many times you&apos;ve followed up. Log a follow-up to bump it to the next round, or discontinue a lead that&apos;s gone cold.
+            </div>
+            <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, fontWeight:600, color:'var(--ink-2b)', whiteSpace:'nowrap' }}>
+              Max follow-ups
+              <input type="number" min={1} max={10} value={maxFollowUps}
+                onChange={e => changeMaxFollowUps(Number(e.target.value))}
+                style={{ width:56, padding:'7px 10px', border:'1px solid var(--line-2)', borderRadius:10, background:'var(--card-2)', color:'var(--ink)', fontFamily:'inherit', fontSize:14, fontWeight:700, textAlign:'center' }} />
+            </label>
+          </div>
+
+          {(() => {
+            const rounds = new Map<number, Call[]>();
+            activeFollowUps.forEach(c => { const r = c.followUpCount || 0; if (!rounds.has(r)) rounds.set(r, []); rounds.get(r)!.push(c); });
+            const roundKeys = [...rounds.keys()].sort((a,b) => a-b);
+            const today = TODAY();
+            const roundTitle = (r: number) => r === 0 ? 'Not yet followed up' : `${r} follow-up${r===1?'':'s'} done`;
+            return (
+              <div style={{ display:'flex', flexDirection:'column', gap:22 }}>
+                {roundKeys.map(r => {
+                  const list = rounds.get(r)!.sort((a,b) => (a.followUpNextDate || '9999').localeCompare(b.followUpNextDate || '9999'));
+                  const maxed = r >= maxFollowUps;
+                  return (
+                    <div key={r}>
+                      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
+                        <span style={{ fontSize:10, fontWeight:700, letterSpacing:'.12em', textTransform:'uppercase', color: maxed ? 'var(--accent-ink)' : 'var(--muted)' }}>{roundTitle(r)}</span>
+                        <span className="scc-num" style={{ fontSize:12, fontWeight:700, color:'var(--muted-2)' }}>{list.length}</span>
+                        {maxed && <span style={{ fontSize:11, fontWeight:700, color:'var(--accent-ink)', background:'var(--accent-soft)', padding:'2px 9px', borderRadius:999 }}>Reached your max — close these out</span>}
+                      </div>
+                      <div className="card">
+                        {list.map((c,idx) => {
+                          const overdue = c.followUpNextDate && c.followUpNextDate < today;
+                          const due = c.followUpNextDate === today;
+                          return (
+                            <div key={c.id} style={{ display:'grid', gridTemplateColumns:'1.5fr 150px 1fr', gap:14, alignItems:'center', padding:'15px 22px', borderTop: idx>0 ? '1px solid var(--line-3)' : undefined }} className="fu-row">
+                              <div style={{ minWidth:0 }}>
+                                <div style={{ fontWeight:700, fontSize:15, letterSpacing:'-.01em' }}>{c.lead}</div>
+                                <div style={{ fontSize:12, color:'var(--muted)', marginTop:1 }}>{c.source} · last outcome: {c.outcome}</div>
+                              </div>
+                              <div style={{ fontSize:13, fontWeight:600, color: overdue ? '#D8431F' : due ? 'var(--accent-ink)' : 'var(--ink-2)' }}>
+                                {c.followUpNextDate ? `${overdue ? 'Overdue · ' : due ? 'Due today · ' : ''}${c.followUpNextDate}` : 'No date set'}
+                              </div>
+                              <div style={{ display:'flex', gap:8, justifyContent:'flex-end', alignItems:'center', flexWrap:'wrap' }}>
+                                <button onClick={() => logFollowUp(c)} className="coral-btn" style={{ height:34, padding:'0 14px', fontSize:12.5, borderRadius:10, whiteSpace:'nowrap' }}>Log follow-up</button>
+                                <DotMenu actions={[
+                                  { label:'Edit', onClick:() => setEditCall(c) },
+                                  { label:'Mark won', onClick:() => setFollowUpStatus(c, 'converted') },
+                                  { label:'Discontinue', onClick:() => setFollowUpStatus(c, 'discontinued'), danger:true },
+                                ]} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -596,6 +705,16 @@ function PhoneIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
       <path d="M5 3.5h2.2l1.1 3-1.5 1.1a7.5 7.5 0 0 0 3.6 3.6l1.1-1.5 3 1.1v2.2a1.2 1.2 0 0 1-1.3 1.2A11 11 0 0 1 3.8 4.8 1.2 1.2 0 0 1 5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function GripIcon() {
+  return (
+    <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" style={{ display:'block' }}>
+      <circle cx="2.5" cy="3" r="1.3"/><circle cx="7.5" cy="3" r="1.3"/>
+      <circle cx="2.5" cy="8" r="1.3"/><circle cx="7.5" cy="8" r="1.3"/>
+      <circle cx="2.5" cy="13" r="1.3"/><circle cx="7.5" cy="13" r="1.3"/>
     </svg>
   );
 }

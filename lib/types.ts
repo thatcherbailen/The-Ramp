@@ -40,13 +40,16 @@ export interface RoofingWeek {
 }
 
 export interface Target {
+  id?: string;
   company: string;
+  role?: string;
   tier: string;
   tierLabel: string;
   hiring: string;
   hiringTone: 'active' | 'watch';
   sells: string;
   prep: string;
+  inPipeline?: boolean; // set once promoted into the job pipeline
 }
 
 export interface Phase {
@@ -112,6 +115,13 @@ export interface Call {
   worked: string;
   improve: string;
   notes?: string;
+  // Follow-up pipeline: a lead you plan to call back. followUpCount is how many
+  // times you've followed up; status 'active' shows in the follow-up lists,
+  // 'discontinued' drops it, 'converted' marks a win.
+  followUp?: boolean;
+  followUpStatus?: 'active' | 'discontinued' | 'converted';
+  followUpCount?: number;
+  followUpNextDate?: string;
   isInterviewStory: boolean;
   storyTitle?: string;
 }
@@ -208,6 +218,7 @@ export interface Settings {
   targetRole: string;
   city: string;
   dailyCallGoal: number;
+  maxFollowUps?: number; // how many follow-up rounds before a lead is flagged to close out
   weekStartsMonday: boolean;
   startDate: string;
   targetCompanies: string;
@@ -230,6 +241,7 @@ export const DEFAULT_SETTINGS: Settings = {
   targetRole: 'Sales',
   city: '',
   dailyCallGoal: 30,
+  maxFollowUps: 3,
   weekStartsMonday: true,
   startDate: '',
   targetCompanies: '',

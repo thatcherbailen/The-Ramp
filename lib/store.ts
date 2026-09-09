@@ -1,6 +1,7 @@
 'use client';
 import { Task, Job, Call, Story, PrepCard, Objection, Contact, CalendarEvent, Reading, NewsItem, Settings, Goal, OutreachEntry, RoofingWeek, Note, Activity, ActivityType, DEFAULT_SETTINGS } from './types';
-import { DEFAULT_GOAL, SEED_READING } from './seedData';
+import { DEFAULT_GOAL, SEED_READING, SEED_TARGETS } from './seedData';
+import { Target } from './types';
 import { supabase } from './supabase';
 
 const KEYS = {
@@ -123,6 +124,24 @@ export function saveJob(j: Job) {
 }
 export function deleteJob(id: string) { save(KEYS.jobs, getJobs().filter(x => x.id !== id)); }
 
+// ── Target companies (user-managed; seeded once from examples) ────────
+// Stored with ids so they can be edited/deleted and promoted to the pipeline.
+// First read seeds the example targets so the tab isn't empty for new users.
+export function getTargets(): Target[] {
+  const t = load<Target[] | null>('scc_targets', null);
+  if (t === null) {
+    const seeded = SEED_TARGETS.map((s, i) => ({ ...s, id: `seed_target_${i}` }));
+    save('scc_targets', seeded);
+    return seeded;
+  }
+  return t;
+}
+export function saveTarget(t: Target) {
+  const arr = getTargets(); const idx = arr.findIndex(x => x.id === t.id);
+  if (idx >= 0) arr[idx] = t; else arr.push(t); save('scc_targets', arr);
+}
+export function deleteTarget(id: string) { save('scc_targets', getTargets().filter(x => x.id !== id)); }
+
 // ── Activities (daily volume tally: calls, messages, emails) ──────────
 export function getActivities(): Activity[] { return load('scc_activities', []); }
 export function saveActivity(a: Activity) {
@@ -144,6 +163,24 @@ export function saveCall(c: Call) {
   if (idx >= 0) arr[idx] = c; else arr.push(c); save(KEYS.calls, arr);
 }
 export function deleteCall(id: string) { save(KEYS.calls, getCalls().filter(x => x.id !== id)); }
+// Persist a whole reordered/renumbered set of calls in one write (used by
+// drag-to-reorder and renumber-on-edit so we don't fire a save per call).
+export function saveAllCalls(arr: Call[]) { save(KEYS.calls, arr); }
+// Given calls in the desired order (#1 first), assign contiguous call numbers.
+export function renumberCalls(orderedAsc: Call[]) {
+  saveAllCalls(orderedAsc.map((c, i) => ({ ...c, callNumber: i + 1 })));
+}
+// Move one call to a specific call number, shifting the rest to stay contiguous
+// (used when the number is edited in the form).
+export function setCallNumber(id: string, newNumber: number) {
+  const asc = [...getCalls()].sort((a, b) => (a.callNumber || 0) - (b.callNumber || 0));
+  const idx = asc.findIndex(c => c.id === id);
+  if (idx < 0) return;
+  const [item] = asc.splice(idx, 1);
+  const pos = Math.max(0, Math.min(asc.length, newNumber - 1));
+  asc.splice(pos, 0, item);
+  renumberCalls(asc);
+}
 
 // ── Stories ──────────────────────────────────────────────────────
 export function getStories(): Story[] { return load(KEYS.stories, []); }

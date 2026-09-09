@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Modal from './Modal';
-import { saveCall, uid, getCalls } from '@/lib/store';
+import { saveCall, uid, getCalls, setCallNumber } from '@/lib/store';
 import { Call } from '@/lib/types';
 
 const SOURCES = ['Cold call', 'Website lead', 'Inbound', 'Referral', 'LinkedIn', 'Email', 'Event', 'Other'];
@@ -46,10 +46,20 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
       worked: f.worked || '',
       improve: f.improve || '',
       notes: f.notes || '',
+      followUp: !!f.followUp,
+      followUpStatus: f.followUp ? (f.followUpStatus || 'active') : f.followUpStatus,
+      followUpCount: f.followUpCount || 0,
+      followUpNextDate: f.followUp ? f.followUpNextDate : undefined,
       isInterviewStory: !!f.isInterviewStory,
       storyTitle: f.storyTitle,
     };
     saveCall(c);
+    // If the number was changed on an existing call, slot it into that position
+    // and renumber the rest so the sequence stays contiguous.
+    const oldNumber = (initial as Call)?.callNumber;
+    if (initial && oldNumber && f.callNumber && f.callNumber !== oldNumber) {
+      setCallNumber(c.id, f.callNumber);
+    }
     onClose();
   };
 
@@ -133,6 +143,23 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
             </label>
           </div>
         )}
+
+        {/* Follow-up: adds this lead to the Follow-ups tab with a next date. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input type="checkbox" checked={!!f.followUp}
+              onChange={e => update({ followUp: e.target.checked, followUpStatus: e.target.checked ? (f.followUpStatus || 'active') : f.followUpStatus })}
+              style={{ accentColor: '#F5552E', width: 16, height: 16 }} />
+            <span style={{ fontSize: 14, fontWeight: 600 }}>Needs a follow-up</span>
+          </label>
+          {f.followUp && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 180 }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Next by</span>
+              <input className="form-input" type="date" value={f.followUpNextDate || ''}
+                onChange={e => update({ followUpNextDate: e.target.value })} style={{ flex: 1 }} />
+            </label>
+          )}
+        </div>
 
         <div>
           {lbl('Response / what you said')}

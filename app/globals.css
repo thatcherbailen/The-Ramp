@@ -73,6 +73,15 @@ body {
 
 .scc-num { font-variant-numeric: tabular-nums; letter-spacing: -.04em; }
 
+/* Drag-to-reorder rows in the Call Log. The grip hides until you hover the
+   row, so the list stays clean until you reach for it. */
+.drag-grip { color: var(--muted-3); opacity: 0; transition: opacity .12s; cursor: grab; display: inline-flex; }
+.call-row:hover .drag-grip { opacity: 1; }
+.drag-grip:active { cursor: grabbing; }
+.call-row.dragging { opacity: .4; }
+.call-row.drag-over { box-shadow: inset 0 2px 0 0 var(--accent); }
+@media (hover: none) { .drag-grip { display: none; } }
+
 .coral-btn {
   background: #F5552E;
   color: #fff;

@@ -2,16 +2,15 @@
 import { useState, useEffect } from 'react';
 import Modal from '@/components/Modal';
 import DotMenu from '@/components/DotMenu';
-import { getJobs, saveJob, deleteJob, uid, getCalls, getGoals, getOutreach, saveOutreach, deleteOutreach, getRoofing, saveRoofingWeek, getSettings } from '@/lib/store';
-import { Job, OutreachEntry, RoofingWeek } from '@/lib/types';
-import { SEED_TARGETS } from '@/lib/seedData';
+import { getJobs, saveJob, deleteJob, uid, getCalls, getGoals, getOutreach, saveOutreach, deleteOutreach, getRoofing, saveRoofingWeek, getSettings, getTargets, saveTarget, deleteTarget } from '@/lib/store';
+import { Job, OutreachEntry, RoofingWeek, Target } from '@/lib/types';
 
 type Opening = { company: string; role: string; location: string; url: string; source: string; posted: string; summary: string };
 
-type Tab = 'pipeline' | 'find' | 'dashboard' | 'targets' | 'outreach' | 'applications' | 'roofing';
+type Tab = 'pipeline' | 'find' | 'dashboard' | 'targets' | 'outreach' | 'applications' | 'performance';
 const TABS: { key: Tab; label: string }[] = [
   { key: 'pipeline', label: 'Pipeline' }, { key: 'find', label: 'Find Jobs' }, { key: 'dashboard', label: 'Dashboard' }, { key: 'targets', label: 'Targets' },
-  { key: 'outreach', label: 'Outreach' }, { key: 'applications', label: 'Applications' }, { key: 'roofing', label: 'Roofing' },
+  { key: 'outreach', label: 'Outreach' }, { key: 'applications', label: 'Applications' }, { key: 'performance', label: 'Performance' },
 ];
 
 const STATUS_PILL: Record<string, { bg: string; color: string }> = {
@@ -116,9 +115,43 @@ function RoofingModal({ week, data, onClose }: { week: string; data: RoofingWeek
     <Modal title={`Week of ${week}`} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>{num('calls', 'Calls made')}{num('booked', 'Appointments booked')}</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>{num('held', 'Appointments held')}{num('sent', 'Proposals sent')}</div>
-        {num('won', 'Proposals won')}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>{num('held', 'Appointments held')}{num('sent', 'Quotes / proposals sent')}</div>
+        {num('won', 'Deals won')}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}><button onClick={onClose} style={cancelBtn}>Cancel</button><button onClick={save} className="coral-btn" style={addBtn}>Save week</button></div>
+      </div>
+    </Modal>
+  );
+}
+
+// ── Target modal ──
+const TIER_LABELS = ['Dream target', 'Strong fit', 'Stepping stone', 'Stretch', 'Backup'];
+function TargetModal({ initial, onClose }: { initial?: Target; onClose: () => void }) {
+  const [f, setF] = useState<Partial<Target>>({ company: '', role: '', tierLabel: 'Strong fit', hiring: '', hiringTone: 'watch', sells: '', prep: '', ...initial });
+  const upd = (p: Partial<Target>) => setF(v => ({ ...v, ...p }));
+  const save = () => {
+    if (!f.company?.trim()) return;
+    saveTarget({ id: initial?.id || uid(), company: f.company!, role: f.role || '', tier: initial?.tier || 'target', tierLabel: f.tierLabel || 'Strong fit', hiring: f.hiring || '', hiringTone: (f.hiringTone as 'active' | 'watch') || 'watch', sells: f.sells || '', prep: f.prep || '', inPipeline: initial?.inPipeline });
+    onClose();
+  };
+  const inp = (k: keyof Target, ph?: string) => <input className="form-input" placeholder={ph} value={f[k] as string || ''} onChange={e => upd({ [k]: e.target.value } as Partial<Target>)} />;
+  return (
+    <Modal title={initial ? 'Edit target' : 'Add target'} onClose={onClose}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div><label className="form-label">Company</label>{inp('company', 'Company name')}</div>
+          <div><label className="form-label">Role you want</label>{inp('role', 'Account Executive')}</div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div><label className="form-label">Tier</label><select className="form-select" value={f.tierLabel} onChange={e => upd({ tierLabel: e.target.value })}>{TIER_LABELS.map(o => <option key={o}>{o}</option>)}</select></div>
+          <div><label className="form-label">Hiring status</label><select className="form-select" value={f.hiringTone} onChange={e => upd({ hiringTone: e.target.value as 'active' | 'watch' })}><option value="active">Actively hiring</option><option value="watch">Watching / not yet</option></select></div>
+        </div>
+        <div><label className="form-label">Hiring notes</label>{inp('hiring', 'e.g. Check careers page for openings in your region')}</div>
+        <div><label className="form-label">What they sell · who buys</label><textarea className="form-input" placeholder="Product, and who the buyers are…" value={f.sells || ''} onChange={e => upd({ sells: e.target.value })} style={{ minHeight: 64, resize: 'vertical' }} /></div>
+        <div><label className="form-label">Interview prep focus</label><textarea className="form-input" placeholder="What to study before applying…" value={f.prep || ''} onChange={e => upd({ prep: e.target.value })} style={{ minHeight: 64, resize: 'vertical' }} /></div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
+          {initial && <button onClick={() => { deleteTarget(initial.id!); onClose(); }} style={{ ...cancelBtn, color: '#D8431F', borderColor: '#F0CFC6', marginRight: 'auto' }}>Delete</button>}
+          <button onClick={onClose} style={cancelBtn}>Cancel</button><button onClick={save} className="coral-btn" style={addBtn}>{initial ? 'Save changes' : 'Add target'}</button>
+        </div>
       </div>
     </Modal>
   );
@@ -142,6 +175,8 @@ export default function JobsPage() {
   const [tab, setTab] = useState<Tab>('pipeline');
   const [jobs, setJobs] = useState<Job[]>([]);
   const [outreach, setOutreach] = useState<OutreachEntry[]>([]);
+  const [targets, setTargets] = useState<Target[]>([]);
+  const [targetOpen, setTargetOpen] = useState(false); const [editTarget, setEditTarget] = useState<Target | null>(null);
   const [roofing, setRoofing] = useState<Record<string, RoofingWeek>>({});
   const [callStats, setCallStats] = useState({ calls: 0, appts: 0, revenue: 0 });
   const [planStart, setPlanStart] = useState(''); const [planEnd, setPlanEnd] = useState('');
@@ -157,6 +192,7 @@ export default function JobsPage() {
   const load = () => {
     setJobs(getJobs());
     setOutreach(getOutreach());
+    setTargets(getTargets());
     setRoofing(getRoofing());
     const calls = getCalls();
     setCallStats({ calls: calls.length, appts: calls.filter(c => c.appointmentBooked).length, revenue: calls.reduce((s, c) => s + dollars(c.jobValue), 0) });
@@ -204,6 +240,20 @@ export default function JobsPage() {
     load();
   };
 
+  // Promote a target into the job pipeline: create a job pre-filled from the
+  // target, mark the target as in-pipeline, and open the job to add details.
+  const promoteTarget = (t: Target) => {
+    const job: Job = {
+      id: uid(), company: t.company, role: t.role || '', location: '', source: 'Target list',
+      status: 'Researching', ote: '', nextStep: 'Apply', contact: '',
+      notes: [t.sells && `Sells: ${t.sells}`, t.prep && `Prep: ${t.prep}`].filter(Boolean).join('\n'),
+    };
+    saveJob(job);
+    saveTarget({ ...t, inPipeline: true });
+    load();
+    setEditJob(job);
+  };
+
   const pipeline = jobs.filter(j => !['Rejected', 'Closed'].includes(j.status));
   const interviewPlus = jobs.filter(j => ['Interview', 'Final Round', 'Offer'].includes(j.status)).length;
   const offers = jobs.filter(j => j.status === 'Offer').length;
@@ -217,15 +267,15 @@ export default function JobsPage() {
   const rt = weeks.reduce((acc, w) => { const d = roofing[w]; if (d) { acc.calls += num(d.calls); acc.booked += num(d.booked); acc.held += num(d.held); acc.sent += num(d.sent); acc.won += num(d.won); } return acc; }, { calls: 0, booked: 0, held: 0, sent: 0, won: 0 });
 
   const counts: Record<Tab, { n: number | string; label: string }> = {
-    pipeline: { n: jobs.length, label: 'roles' }, find: { n: results.length, label: 'found' }, dashboard: { n: jobs.length, label: 'tracked' }, targets: { n: SEED_TARGETS.length, label: 'companies' },
-    outreach: { n: outreach.length, label: 'contacts' }, applications: { n: jobs.length, label: 'apps' }, roofing: { n: weeks.length, label: 'weeks' },
+    pipeline: { n: jobs.length, label: 'roles' }, find: { n: results.length, label: 'found' }, dashboard: { n: jobs.length, label: 'tracked' }, targets: { n: targets.length, label: 'companies' },
+    outreach: { n: outreach.length, label: 'contacts' }, applications: { n: jobs.length, label: 'apps' }, performance: { n: weeks.length, label: 'weeks' },
   };
   const kicker: Record<Tab, string> = {
     pipeline: 'Job Search · Pipeline', find: 'Job Search · AI Finder', dashboard: 'Job Search · Dashboard', targets: 'Job Search · Target Companies',
-    outreach: 'Job Search · Outreach Tracker', applications: 'Job Search · Application Tracker', roofing: 'Job Search · Roofing Metrics',
+    outreach: 'Job Search · Outreach Tracker', applications: 'Job Search · Application Tracker', performance: 'Sales · Performance Tracker',
   };
-  const headerAdd = () => tab === 'outreach' ? setOutOpen(true) : setJobOpen(true);
-  const headerAddLabel = tab === 'outreach' ? '+ Add outreach' : '+ Add job';
+  const headerAdd = () => tab === 'outreach' ? setOutOpen(true) : tab === 'targets' ? setTargetOpen(true) : setJobOpen(true);
+  const headerAddLabel = tab === 'outreach' ? '+ Add outreach' : tab === 'targets' ? '+ Add target' : '+ Add job';
 
   return (
     <div>
@@ -353,7 +403,7 @@ export default function JobsPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: '#F5552E' }} /><span style={{ fontWeight: 700, fontSize: 14 }}>Plan window</span><span style={{ fontSize: 13, color: 'var(--muted)' }}>{planWindow || '—'}</span></div>
             <span style={{ fontSize: 12, color: 'var(--muted)' }}>Updates from the tabs — keep them current.</span>
           </div>
-          <div className="grid-2up" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, alignItems: 'start' }}>
             <MetricCard title="Outreach & Networking" rows={[
               { label: 'Total contacts logged', value: outreach.length }, { label: 'Replies / conversations', value: replied },
               { label: 'Response rate', value: rate(replied, outreach.length), accent: true }, { label: 'Calls / coffee chats done', value: outreach.filter(o => o.status === 'Booked').length }, { label: 'Referrals secured', value: referrals },
@@ -362,7 +412,7 @@ export default function JobsPage() {
               { label: 'Total roles tracked', value: jobs.length }, { label: 'Active in pipeline', value: pipeline.length },
               { label: 'Reached interview stage+', value: interviewPlus }, { label: 'Offers', value: offers }, { label: 'Interview rate', value: rate(interviewPlus, jobs.length), accent: true },
             ]} />
-            <MetricCard title="Roofing Performance" rows={[
+            <MetricCard title="Sales Performance" rows={[
               { label: 'Total calls made', value: rt.calls || callStats.calls }, { label: 'Appointments booked', value: rt.booked || callStats.appts },
               { label: 'Booking rate', value: rate(rt.booked || callStats.appts, rt.calls || callStats.calls), accent: true }, { label: 'Appointments held', value: rt.held }, { label: 'Show rate', value: rate(rt.held, rt.booked) },
               { label: 'Proposals sent', value: rt.sent }, { label: 'Proposals won', value: rt.won }, { label: 'Revenue generated (AUD)', value: `$${callStats.revenue.toLocaleString('en-AU')}` },
@@ -372,23 +422,42 @@ export default function JobsPage() {
       )}
 
       {/* TARGETS */}
-      {tab === 'targets' && (
+      {tab === 'targets' && (targets.length === 0 ? (
+        <div className="card" style={{ padding: '52px 40px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <div style={{ fontWeight: 800, fontSize: 19 }}>No target companies yet</div>
+          <div style={{ fontSize: 14, color: 'var(--muted)', maxWidth: 400, lineHeight: 1.5 }}>Add the companies you want to work for. When a role opens up, promote a target straight into your application pipeline.</div>
+          <button onClick={() => setTargetOpen(true)} className="coral-btn" style={{ height: 46, padding: '0 22px', fontSize: 14, marginTop: 4 }}>+ Add your first target</button>
+        </div>
+      ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {SEED_TARGETS.map(t => (
-            <div key={t.company} className="card" style={{ padding: '22px 24px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-                <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: '-.01em' }}>{t.company}</span>
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--accent-ink)', background: 'var(--accent-soft)', padding: '3px 10px', borderRadius: 999 }}>{t.tierLabel}</span>
-                <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 11px', borderRadius: 999, ...(t.hiringTone === 'active' ? { color: '#F5552E', border: '1px solid #F5552E', background: 'transparent' } : { color: 'var(--muted)', background: 'var(--card-3)' }) }}>{t.hiring}</span>
+          {targets.map(t => (
+            <div key={t.id} className="card" style={{ padding: '22px 24px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: '-.01em' }}>{t.company}</span>
+                  {t.role && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)' }}>{t.role}</span>}
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--accent-ink)', background: 'var(--accent-soft)', padding: '3px 10px', borderRadius: 999 }}>{t.tierLabel}</span>
+                  {t.hiring && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 11px', borderRadius: 999, ...(t.hiringTone === 'active' ? { color: '#F5552E', border: '1px solid #F5552E', background: 'transparent' } : { color: 'var(--muted)', background: 'var(--card-3)' }) }}>{t.hiring}</span>}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                  {t.inPipeline ? (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#3F8F5B', background: '#E8F5EE', padding: '5px 12px', borderRadius: 999, whiteSpace: 'nowrap' }}>✓ In pipeline</span>
+                  ) : (
+                    <button onClick={() => promoteTarget(t)} className="coral-btn" style={{ height: 34, padding: '0 14px', fontSize: 12.5, borderRadius: 10, whiteSpace: 'nowrap' }}>+ Add to pipeline</button>
+                  )}
+                  <DotMenu actions={[{ label: 'Edit', onClick: () => setEditTarget(t) }, { label: 'Delete', onClick: () => { deleteTarget(t.id!); load(); }, danger: true }]} />
+                </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 28px' }}>
-                <div><div style={subLabel}>What they sell · who buys</div><div style={subText}>{t.sells}</div></div>
-                <div><div style={subLabel}>Interview prep focus</div><div style={subText}>{t.prep}</div></div>
-              </div>
+              {(t.sells || t.prep) && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 28px' }}>
+                  {t.sells && <div><div style={subLabel}>What they sell · who buys</div><div style={subText}>{t.sells}</div></div>}
+                  {t.prep && <div><div style={subLabel}>Interview prep focus</div><div style={subText}>{t.prep}</div></div>}
+                </div>
+              )}
             </div>
           ))}
         </div>
-      )}
+      ))}
 
       {/* OUTREACH */}
       {tab === 'outreach' && (outreach.length === 0 ? (
@@ -469,10 +538,10 @@ export default function JobsPage() {
         </>
       ))}
 
-      {/* ROOFING */}
-      {tab === 'roofing' && (
+      {/* PERFORMANCE */}
+      {tab === 'performance' && (
         <div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16, lineHeight: 1.5, maxWidth: 720 }}>Cumulative roofing performance — your live proof points for interviews. Booking, show and close rates calculate from the weekly numbers. Tap a week to fill it in.</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16, lineHeight: 1.5, maxWidth: 720 }}>Cumulative sales performance — your live proof points for interviews. Booking, show and close rates calculate from the weekly numbers. Tap a week to fill it in.</div>
           <div className="card hidden md:block">
             <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr', gap: 10, padding: '13px 22px', background: 'var(--card-2)', borderTopLeftRadius: 18, borderTopRightRadius: 18, fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--muted)' }}>
               <div>Week starting</div><div>Calls</div><div>Booked</div><div>Book rate</div><div>Held</div><div>Show rate</div><div>Sent</div><div>Won</div>
@@ -519,6 +588,7 @@ export default function JobsPage() {
         </div>
       )}
 
+      {(targetOpen || editTarget) && <TargetModal initial={editTarget || undefined} onClose={() => { setTargetOpen(false); setEditTarget(null); load(); }} />}
       {(jobOpen || editJob) && <JobModal initial={editJob || undefined} onClose={() => { setJobOpen(false); setEditJob(null); load(); }} />}
       {(outOpen || editOut) && <OutreachModal initial={editOut || undefined} onClose={() => { setOutOpen(false); setEditOut(null); load(); }} />}
       {editWeek && <RoofingModal week={editWeek} data={roofing[editWeek] || { calls: '', booked: '', held: '', sent: '', won: '' }} onClose={() => { setEditWeek(null); load(); }} />}
