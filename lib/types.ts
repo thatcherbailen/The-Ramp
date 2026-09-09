@@ -100,6 +100,7 @@ export interface Call {
   id: string;
   date: string;
   lead: string;
+  phone?: string;
   source: string;
   callNumber: number;
   duration: string;

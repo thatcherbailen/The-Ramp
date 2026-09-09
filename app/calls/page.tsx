@@ -4,6 +4,7 @@ import { getCalls, deleteCall, saveCall, getCallInsights, saveCallInsights, Call
 import { Call, Activity, ActivityType } from '@/lib/types';
 import { RANGES, RangeKey, rangeStart, buildBuckets, bucketValues } from '@/lib/analytics';
 import LogCallModal from '@/components/LogCallModal';
+import ImportCallsModal from '@/components/ImportCallsModal';
 import DotMenu from '@/components/DotMenu';
 
 const TODAY = () => new Date().toISOString().slice(0, 10);
@@ -12,6 +13,7 @@ type Tab = 'log' | 'meetings' | 'followups' | 'dashboard' | 'stories';
 
 const OUTCOME_COLORS: Record<string, {bg:string,color:string}> = {
   'Appointment booked': { bg: '#E8F5EE', color: '#3F8F5B' },
+  'Contacted': { bg: '#E8F5EE', color: '#3F8F5B' },
   'Voicemail': { bg: 'var(--card-2)', color: 'var(--muted)' },
   'Not interested': { bg: 'var(--accent-soft)', color: 'var(--accent-ink)' },
   'Follow up': { bg: '#EEF3FB', color: '#3D6FBF' },
@@ -32,6 +34,7 @@ export default function CallsPage() {
   const [range, setRange] = useState<RangeKey>('month');
   const [metric, setMetric] = useState<'Activities'|'Calls'|'Appointments'|'Revenue'>('Activities');
   const [logOpen, setLogOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editCall, setEditCall] = useState<Call|null>(null);
   const [insights, setInsights] = useState<CallInsights|null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
@@ -53,7 +56,7 @@ export default function CallsPage() {
     setCalls([...getCalls()].sort((a,b) => (b.callNumber || 0) - (a.callNumber || 0) || b.date.localeCompare(a.date)));
     setActivities([...getActivities()]);
   };
-  useEffect(() => { load(); }, [logOpen, editCall]);
+  useEffect(() => { load(); }, [logOpen, editCall, importOpen]);
 
   // Quick-add a daily activity, then refresh; undo removes the most recent tally.
   const quickAdd = (type: ActivityType) => { logActivity(type); setActivities([...getActivities()]); };
@@ -63,10 +66,10 @@ export default function CallsPage() {
     const last = [...arr].sort((a,b) => (b.ts || 0) - (a.ts || 0))[0];
     deleteActivity(last.id); setActivities([...getActivities()]);
   };
-  // Never strand on a tab whose contents just emptied out.
+  // Never strand on the Meetings tab if the last booked meeting is removed.
+  // (Follow-ups stays visible even when empty, with its own empty state.)
   useEffect(() => {
     if (tab === 'meetings' && !calls.some(c => c.appointmentBooked)) setTab('log');
-    if (tab === 'followups' && !calls.some(c => c.followUp && (c.followUpStatus ?? 'active') === 'active')) setTab('log');
   }, [tab, calls]);
 
   // Toggle whether a booked meeting turned into a closed (won) deal.
@@ -206,7 +209,7 @@ export default function CallsPage() {
     { label:'Objections handled', value: dCalls.filter(c => c.objection !== 'None').length, coral:false },
   ];
 
-  const TABS: Tab[] = ['dashboard', 'log', ...(apptCount ? ['meetings' as Tab] : []), ...(activeFollowUps.length ? ['followups' as Tab] : []), 'stories'];
+  const TABS: Tab[] = ['dashboard', 'log', ...(apptCount ? ['meetings' as Tab] : []), 'followups', 'stories'];
   const tabLabel = (t: Tab) => t === 'log' ? 'Call Log' : t === 'meetings' ? `Meetings (${apptCount})` : t === 'followups' ? `Follow-ups (${activeFollowUps.length})` : t === 'dashboard' ? 'Dashboard' : 'Stories';
 
   return (
@@ -221,6 +224,9 @@ export default function CallsPage() {
             <span className="scc-num" style={{ fontWeight:300, fontSize:52, color:'#F5552E' }}>{calls.length}</span>
             <span style={{ fontSize:12, fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', color:'var(--muted)' }}>total calls</span>
           </div>
+          <button onClick={() => setImportOpen(true)} style={{ height:50, padding:'0 18px', fontSize:14, fontWeight:700, borderRadius:999, border:'1px solid var(--line-2)', background:'var(--card)', color:'var(--ink-2b)', cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap' }}>
+            Import
+          </button>
           <button onClick={() => setLogOpen(true)} className="coral-btn" style={{ height:50, padding:'0 24px', fontSize:15, boxShadow:'0 8px 22px rgba(245,85,46,.28)' }}>
             <PhoneIcon />Log a call
           </button>
@@ -263,7 +269,7 @@ export default function CallsPage() {
                     <span className="scc-num" style={{ fontWeight:600, color:'var(--muted-3)', fontSize:14 }}>{c.callNumber || i+1}</span>
                   </div>
                   <div>
-                    <div style={{ fontWeight:700, fontSize:15, letterSpacing:'-.01em' }}>{c.lead}</div>
+                    <div style={{ fontWeight:700, fontSize:15, letterSpacing:'-.01em' }}>{c.lead}{c.phone ? <span style={{ fontWeight:500, color:'var(--muted)', fontSize:13, marginLeft:8 }}>{c.phone}</span> : null}</div>
                     <div style={{ fontSize:12, color:'var(--muted)', marginTop:1 }}>{c.source} · {c.date}</div>
                   </div>
                   <div style={pillStyle(c.outcome) as React.CSSProperties}>{c.outcome}</div>
@@ -314,7 +320,7 @@ export default function CallsPage() {
               <div key={c.id} onClick={() => setEditCall(c)} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, padding:'15px 0', borderTop:'1px solid var(--line-3)', cursor:'pointer' }}>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontWeight:700, fontSize:16, letterSpacing:'-.01em' }}>{c.lead}</div>
-                  <div style={{ fontSize:12, fontWeight:500, color:'var(--muted)', marginTop:2 }}>{c.source} · {c.date}</div>
+                  <div style={{ fontSize:12, fontWeight:500, color:'var(--muted)', marginTop:2 }}>{c.phone ? `${c.phone} · ` : ''}{c.source} · {c.date}</div>
                 </div>
                 <div style={{ ...pillStyle(c.outcome) as React.CSSProperties, flex:'none', textAlign:'center' }}>{c.outcome}</div>
               </div>
@@ -399,7 +405,12 @@ export default function CallsPage() {
             </label>
           </div>
 
-          {(() => {
+          {activeFollowUps.length === 0 ? (
+            <div className="card" style={{ padding:'48px 40px', textAlign:'center', color:'var(--muted)' }}>
+              <div style={{ fontWeight:700, fontSize:17, color:'var(--ink)', marginBottom:8 }}>No follow-ups yet</div>
+              <div style={{ fontSize:14, lineHeight:1.55, maxWidth:420, margin:'0 auto' }}>Tick “Needs a follow-up” when logging a call — or import attempted calls — and the leads to chase land here, grouped by round.</div>
+            </div>
+          ) : (() => {
             const rounds = new Map<number, Call[]>();
             activeFollowUps.forEach(c => { const r = c.followUpCount || 0; if (!rounds.has(r)) rounds.set(r, []); rounds.get(r)!.push(c); });
             const roundKeys = [...rounds.keys()].sort((a,b) => a-b);
@@ -596,6 +607,7 @@ export default function CallsPage() {
         </div>
       )}
 
+      {importOpen && <ImportCallsModal onClose={() => { setImportOpen(false); load(); }} />}
       {logOpen && <LogCallModal onClose={() => { setLogOpen(false); load(); }} />}
       {editCall && <LogCallModal initial={editCall} onClose={() => { setEditCall(null); load(); }} />}
     </div>

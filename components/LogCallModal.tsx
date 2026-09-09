@@ -5,7 +5,7 @@ import { saveCall, uid, getCalls, setCallNumber } from '@/lib/store';
 import { Call } from '@/lib/types';
 
 const SOURCES = ['Cold call', 'Website lead', 'Inbound', 'Referral', 'LinkedIn', 'Email', 'Event', 'Other'];
-const OUTCOMES = ['Appointment booked', 'Voicemail', 'Not interested', 'Follow up', 'Wrong number', 'No answer', 'Call back later'];
+const OUTCOMES = ['Contacted', 'Appointment booked', 'Voicemail', 'Not interested', 'Follow up', 'Wrong number', 'No answer', 'Call back later'];
 const OBJECTIONS = ['None', 'Price', 'Timing', 'Competitor', 'No need', 'No decision maker', 'Brush off', 'Budget'];
 const TONES = ['Warm', 'Neutral', 'Cold', 'Hostile', 'Interested'];
 
@@ -31,6 +31,7 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
       id: (initial as Call)?.id || uid(),
       date: f.date || new Date().toISOString().slice(0,10),
       lead: f.lead!,
+      phone: f.phone || '',
       source: f.source || 'Cold call',
       callNumber: f.callNumber || 1,
       duration: f.duration || '',
@@ -87,7 +88,10 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
   return (
     <Modal title={initial ? 'Edit call' : 'Log a call'} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div>{lbl('Lead name / company')}{inp('lead', 'Acme Corp — John Smith')}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 14 }}>
+          <div>{lbl('Lead name / company')}{inp('lead', 'Acme Corp — John Smith')}</div>
+          <div>{lbl('Phone')}{inp('phone', '021 123 4567', 'tel')}</div>
+        </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div>
