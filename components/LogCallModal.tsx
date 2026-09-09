@@ -32,6 +32,7 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
       date: f.date || new Date().toISOString().slice(0,10),
       lead: f.lead!,
       phone: f.phone || '',
+      email: f.email || '',
       source: f.source || 'Cold call',
       callNumber: f.callNumber || 1,
       duration: f.duration || '',

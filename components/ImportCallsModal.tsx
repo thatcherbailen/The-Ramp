@@ -1,57 +1,70 @@
 'use client';
 import { useState, useMemo } from 'react';
 import Modal from './Modal';
-import { getCalls, saveAllCalls, uid } from '@/lib/store';
-import { Call } from '@/lib/types';
+import { getCalls, saveAllCalls, saveActivity, uid } from '@/lib/store';
+import { Call, Activity } from '@/lib/types';
 
 // Bulk-import call log entries from a pasted block. One lead per line, fields
 // separated by "|" in this order:
-//   Name | Phone | Date (YYYY-MM-DD) | Value | Address | Source | Stage
-// Duplicates (same name + phone as an existing call, or repeated within the
-// paste) are skipped automatically.
+//   Name | Phone | Email | Date (YYYY-MM-DD) | Value | Address | Source | Stage
+// Duplicates are skipped: a row matching an existing call (or an earlier row in
+// the paste) by email, or by name + phone, is dropped.
 type Mode = 'Contacted' | 'Attempted';
 
-interface Row { name: string; phone: string; date: string; value: string; address: string; source: string; stage: string; }
+interface Row { name: string; phone: string; email: string; date: string; value: string; address: string; source: string; stage: string; }
 
-const key = (name: string, phone: string) => `${name.trim().toLowerCase()}|${(phone || '').replace(/\D/g, '')}`;
 const TODAY = () => new Date().toISOString().slice(0, 10);
+// Normalise an NZ number for comparison: digits only, leading 64 → 0.
+const normPhone = (p: string) => { let d = (p || '').replace(/\D/g, ''); if (d.startsWith('64')) d = '0' + d.slice(2); return d; };
+const emailKey = (e: string) => (e || '').trim().toLowerCase();
+const npKey = (name: string, phone: string) => `${name.trim().toLowerCase()}|${normPhone(phone)}`;
+
+// Keys that identify a lead. A row is a duplicate if ANY of its keys already
+// exist, so an older import stored without an email still matches on name+phone.
+function keysFor(name: string, phone: string, email: string): string[] {
+  const ks: string[] = [];
+  if (emailKey(email)) ks.push('e:' + emailKey(email));
+  if (name.trim() && normPhone(phone)) ks.push('np:' + npKey(name, phone));
+  return ks;
+}
 
 function parseLines(text: string): Row[] {
   return text.split('\n').map(l => l.trim()).filter(Boolean).map(line => {
     const p = line.split('|').map(s => s.trim());
-    return { name: p[0] || '', phone: p[1] || '', date: p[2] || '', value: p[3] || '', address: p[4] || '', source: p[5] || '', stage: p[6] || '' };
+    return { name: p[0] || '', phone: p[1] || '', email: p[2] || '', date: p[3] || '', value: p[4] || '', address: p[5] || '', source: p[6] || '', stage: p[7] || '' };
   }).filter(r => r.name);
+}
+
+// Dedup a parsed list against the existing calls and within itself.
+function freshRows(rows: Row[]): Row[] {
+  const seen = new Set<string>();
+  getCalls().forEach(c => keysFor(c.lead, c.phone || '', c.email || '').forEach(k => seen.add(k)));
+  const out: Row[] = [];
+  for (const r of rows) {
+    const ks = keysFor(r.name, r.phone, r.email);
+    if (ks.length === 0) { out.push(r); continue; } // no way to match — keep
+    if (ks.some(k => seen.has(k))) continue;
+    ks.forEach(k => seen.add(k));
+    out.push(r);
+  }
+  return out;
 }
 
 export default function ImportCallsModal({ onClose }: { onClose: () => void }) {
   const [text, setText] = useState('');
   const [mode, setMode] = useState<Mode>('Contacted');
-  const [done, setDone] = useState<{ added: number; skipped: number } | null>(null);
+  const [done, setDone] = useState<{ added: number; skipped: number; activities: number } | null>(null);
 
-  const { rows, toAdd, dupes } = useMemo(() => {
+  const { total, toAdd } = useMemo(() => {
     const rows = parseLines(text);
-    const existing = new Set(getCalls().map(c => key(c.lead, c.phone || '')));
-    const seen = new Set<string>();
-    let toAdd = 0, dupes = 0;
-    for (const r of rows) {
-      const k = key(r.name, r.phone);
-      if (existing.has(k) || seen.has(k)) dupes++; else { toAdd++; seen.add(k); }
-    }
-    return { rows, toAdd, dupes };
+    return { total: rows.length, toAdd: freshRows(rows).length };
   }, [text]);
 
   const runImport = () => {
     const rows = parseLines(text);
-    const existing = getCalls();
-    const existingKeys = new Set(existing.map(c => key(c.lead, c.phone || '')));
-    const seen = new Set<string>();
-    const fresh: Row[] = [];
-    for (const r of rows) {
-      const k = key(r.name, r.phone);
-      if (existingKeys.has(k) || seen.has(k)) continue;
-      seen.add(k); fresh.push(r);
-    }
+    const fresh = freshRows(rows);
     fresh.sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
+    const existing = getCalls();
     const maxNum = existing.reduce((m, c) => Math.max(m, c.callNumber || 0), 0);
     const attempted = mode === 'Attempted';
     const newCalls: Call[] = fresh.map((r, i) => ({
@@ -59,6 +72,7 @@ export default function ImportCallsModal({ onClose }: { onClose: () => void }) {
       date: /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : TODAY(),
       lead: r.name,
       phone: r.phone,
+      email: r.email,
       source: r.source || 'Website lead',
       callNumber: maxNum + i + 1,
       duration: '',
@@ -78,17 +92,31 @@ export default function ImportCallsModal({ onClose }: { onClose: () => void }) {
       isInterviewStory: false,
     }));
     saveAllCalls([...existing, ...newCalls]);
-    setDone({ added: newCalls.length, skipped: rows.length - newCalls.length });
+
+    // Attempted calls also log the follow-up text as a Message activity, so each
+    // one counts twice: the dial (a Call activity, derived from the call record)
+    // plus the text message.
+    let activities = 0;
+    if (attempted) {
+      newCalls.forEach(c => {
+        saveActivity({ id: uid(), date: c.date, type: 'Message', note: `Text after missed call — ${c.lead}`, ts: Date.now() } as Activity);
+        activities++;
+      });
+    }
+
+    setDone({ added: newCalls.length, skipped: rows.length - newCalls.length, activities });
   };
 
   if (done) {
     return (
       <Modal title="Import complete" onClose={onClose}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, textAlign: 'center', padding: '8px 0' }}>
-          <div style={{ fontSize: 40, fontWeight: 300, color: '#F5552E' }} className="scc-num">{done.added}</div>
+          <div className="scc-num" style={{ fontSize: 40, fontWeight: 300, color: '#F5552E' }}>{done.added}</div>
           <div style={{ fontSize: 15, fontWeight: 600 }}>{done.added} call{done.added === 1 ? '' : 's'} added{done.skipped > 0 ? ` · ${done.skipped} duplicate${done.skipped === 1 ? '' : 's'} skipped` : ''}</div>
           <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
-            {mode === 'Attempted' ? 'These went into your Follow-ups tab as leads to call back.' : 'These are in your Call Log, marked as contacted.'}
+            {mode === 'Attempted'
+              ? `These went into your Follow-ups tab as leads to call back, and logged ${done.activities} follow-up text${done.activities === 1 ? '' : 's'} as activities (on top of each dial).`
+              : 'These are in your Call Log, marked as contacted.'}
           </div>
           <button onClick={onClose} className="coral-btn" style={{ height: 44, padding: '0 24px', fontSize: 14, borderRadius: 12, alignSelf: 'center', marginTop: 4 }}>Done</button>
         </div>
@@ -100,7 +128,7 @@ export default function ImportCallsModal({ onClose }: { onClose: () => void }) {
     <Modal title="Import calls" onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
-          Paste one lead per line. Duplicates (same name + phone) are skipped automatically.
+          Paste one lead per line. Duplicates (same email, or same name + phone) are skipped automatically.
         </div>
 
         <div>
@@ -112,25 +140,25 @@ export default function ImportCallsModal({ onClose }: { onClose: () => void }) {
                   border: `1px solid ${mode === m ? 'var(--fill-dark)' : 'var(--line-2)'}`,
                   background: mode === m ? 'var(--fill-dark)' : 'var(--card)',
                   color: mode === m ? '#fff' : 'var(--muted)' }}>
-                {m === 'Contacted' ? 'Contacted' : 'Attempted → Follow-ups'}
+                {m === 'Contacted' ? 'Contacted' : 'No answer → Follow-ups'}
               </button>
             ))}
           </div>
           <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 6 }}>
-            {mode === 'Contacted' ? 'Logged as reached, outcome “Contacted”.' : 'Logged as “No answer” and added to your Follow-ups tab.'}
+            {mode === 'Contacted' ? 'Logged as reached, outcome “Contacted”.' : 'Logged as “No answer”, added to Follow-ups, and each logs a follow-up text as an activity too.'}
           </div>
         </div>
 
         <div>
-          <label className="form-label">Paste leads · Name | Phone | Date | Value | Address | Source | Stage</label>
+          <label className="form-label">Paste leads · Name | Phone | Email | Date | Value | Address | Source | Stage</label>
           <textarea className="form-input" value={text} onChange={e => setText(e.target.value)}
-            placeholder={'Kevin Thomas | 0274999584 | 2026-08-09 | $31k–$38k | 128 Marine Parade, Mount Maunganui | Website lead | Long-term planning'}
+            placeholder={'Kevin Thomas | 0274999584 | kevin@email.com | 2026-08-09 | $31k–$38k | 128 Marine Parade, Mount Maunganui | Website lead | Estimator · Working'}
             style={{ minHeight: 200, resize: 'vertical', fontFamily: 'inherit', fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre' }} />
         </div>
 
-        {rows.length > 0 && (
+        {total > 0 && (
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>
-            <span style={{ color: '#F5552E' }}>{toAdd}</span> to import{dupes > 0 && <span style={{ color: 'var(--muted)' }}> · {dupes} duplicate{dupes === 1 ? '' : 's'} skipped</span>}
+            <span style={{ color: '#F5552E' }}>{toAdd}</span> to import{total - toAdd > 0 && <span style={{ color: 'var(--muted)' }}> · {total - toAdd} duplicate{total - toAdd === 1 ? '' : 's'} skipped</span>}
           </div>
         )}
 

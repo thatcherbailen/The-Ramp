@@ -101,6 +101,7 @@ export interface Call {
   date: string;
   lead: string;
   phone?: string;
+  email?: string;
   source: string;
   callNumber: number;
   duration: string;
