@@ -80,6 +80,19 @@ export interface Job {
   interviewDate?: string;
 }
 
+export type ActivityType = 'Call' | 'Message' | 'Email';
+
+// A lightweight daily activity tally. Logged calls count as Call activities
+// automatically (derived from the calls store), so these stored entries are for
+// quick dials, messages and emails you don't log a full call record for.
+export interface Activity {
+  id: string;
+  date: string;      // YYYY-MM-DD
+  type: ActivityType;
+  note?: string;
+  ts?: number;       // ms epoch — lets "undo last" find the most recent
+}
+
 export interface Call {
   id: string;
   date: string;

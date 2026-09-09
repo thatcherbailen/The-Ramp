@@ -1,9 +1,12 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { getCalls, deleteCall, saveCall, getCallInsights, saveCallInsights, CallInsights } from '@/lib/store';
-import { Call } from '@/lib/types';
+import { getCalls, deleteCall, saveCall, getCallInsights, saveCallInsights, CallInsights, getActivities, deleteActivity, logActivity } from '@/lib/store';
+import { Call, Activity, ActivityType } from '@/lib/types';
+import { RANGES, RangeKey, rangeStart, buildBuckets, bucketValues } from '@/lib/analytics';
 import LogCallModal from '@/components/LogCallModal';
 import DotMenu from '@/components/DotMenu';
+
+const TODAY = () => new Date().toISOString().slice(0, 10);
 
 type Tab = 'log' | 'meetings' | 'dashboard' | 'stories';
 
@@ -25,6 +28,9 @@ function pillStyle(outcome: string) {
 export default function CallsPage() {
   const [tab, setTab] = useState<Tab>('dashboard');
   const [calls, setCalls] = useState<Call[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [range, setRange] = useState<RangeKey>('month');
+  const [metric, setMetric] = useState<'Activities'|'Calls'|'Appointments'|'Revenue'>('Activities');
   const [logOpen, setLogOpen] = useState(false);
   const [editCall, setEditCall] = useState<Call|null>(null);
   const [insights, setInsights] = useState<CallInsights|null>(null);
@@ -37,8 +43,22 @@ export default function CallsPage() {
   // array first — getCalls() returns the cached reference and .sort() mutates
   // in place, so without the copy setCalls gets the same reference and React
   // skips the re-render (why an inline toggle only showed after navigating).
-  const load = () => setCalls([...getCalls()].sort((a,b) => (b.callNumber || 0) - (a.callNumber || 0) || b.date.localeCompare(a.date)));
+  // Spread into new arrays so React always sees a fresh reference — getCalls()/
+  // getActivities() return the cached array, which mutates in place.
+  const load = () => {
+    setCalls([...getCalls()].sort((a,b) => (b.callNumber || 0) - (a.callNumber || 0) || b.date.localeCompare(a.date)));
+    setActivities([...getActivities()]);
+  };
   useEffect(() => { load(); }, [logOpen, editCall]);
+
+  // Quick-add a daily activity, then refresh; undo removes the most recent tally.
+  const quickAdd = (type: ActivityType) => { logActivity(type); setActivities([...getActivities()]); };
+  const undoLastActivity = () => {
+    const arr = getActivities();
+    if (!arr.length) return;
+    const last = [...arr].sort((a,b) => (b.ts || 0) - (a.ts || 0))[0];
+    deleteActivity(last.id); setActivities([...getActivities()]);
+  };
   // Never strand on the Meetings tab if the last booked meeting is removed.
   useEffect(() => { if (tab === 'meetings' && !calls.some(c => c.appointmentBooked)) setTab('log'); }, [tab, calls]);
 
@@ -59,12 +79,9 @@ export default function CallsPage() {
   const actualRevenue = closedMeetings.reduce((s,c) => s + dollars(c.jobValue), 0);
   const potentialRevenue = openMeetings.reduce((s,c) => s + dollars(c.jobValue), 0);
 
-  // Average confidence ignores "No answer" calls — there was no conversation,
-  // so their score shouldn't drag the overall confidence number.
-  const scoredCalls = calls.filter(c => c.outcome !== 'No answer');
-  const avgConf = scoredCalls.length ? (scoredCalls.reduce((s,c) => s+c.confidence,0)/scoredCalls.length).toFixed(1) : '—';
+  // Interview stories (all-time) power the Stories tab. Dashboard confidence /
+  // objection counts are computed range-scoped further down.
   const stories = calls.filter(c => c.isInterviewStory);
-  const objectionsHandled = calls.filter(c => c.objection !== 'None').length;
 
   // Calls that carry any written reflection — the raw material for the AI
   // growth summary. A lightweight signature lets us cache the summary and only
@@ -112,20 +129,51 @@ export default function CallsPage() {
     else setInsights(null);
   }, [tab, insightSig, enoughForInsights, generateInsights]);
 
-  const objBreak = calls.reduce((m,c) => { m[c.objection] = (m[c.objection]||0)+1; return m; }, {} as Record<string,number>);
-  const outBreak = calls.reduce((m,c) => { m[c.outcome] = (m[c.outcome]||0)+1; return m; }, {} as Record<string,number>);
-
   const money = (n: number) => `$${n.toLocaleString('en-AU')}`;
+
+  // ── Activity feed: stored tallies + one derived Call activity per logged
+  // call, so the volume metric captures dials without double entry. ──────────
+  const activityFeed = [
+    ...activities.map(a => ({ date: a.date, type: a.type })),
+    ...calls.map(c => ({ date: c.date, type: 'Call' as ActivityType })),
+  ];
+  const todayStr = TODAY();
+  const todayFeed = activityFeed.filter(a => a.date === todayStr);
+  const countType = (arr: { type: ActivityType }[], t: ActivityType) => arr.filter(a => a.type === t).length;
+
+  // ── Dashboard range window: filters every metric below to the chosen span ──
+  const earliest = [...calls.map(c => c.date), ...activities.map(a => a.date)].sort()[0] || todayStr;
+  const dStart = rangeStart(range, earliest);
+  const dCalls = calls.filter(c => c.date >= dStart);
+  const dFeed = activityFeed.filter(a => a.date >= dStart);
+  const dMeetings = dCalls.filter(c => c.appointmentBooked);
+  const dClosed = dMeetings.filter(c => c.dealClosed);
+  const dActual = dClosed.reduce((s,c) => s + dollars(c.jobValue), 0);
+  const dPotential = dMeetings.filter(c => !c.dealClosed).reduce((s,c) => s + dollars(c.jobValue), 0);
+  const dScored = dCalls.filter(c => c.outcome !== 'No answer');
+  const dAvg = dScored.length ? (dScored.reduce((s,c) => s+c.confidence,0)/dScored.length).toFixed(1) : '—';
+  const dObjBreak = dCalls.reduce((m,c) => { m[c.objection] = (m[c.objection]||0)+1; return m; }, {} as Record<string,number>);
+  const dOutBreak = dCalls.reduce((m,c) => { m[c.outcome] = (m[c.outcome]||0)+1; return m; }, {} as Record<string,number>);
+
+  // ── Trend series for the selected metric across the range ──────────────────
+  const buckets = buildBuckets(dStart);
+  let series: number[];
+  let seriesMoney = false;
+  if (metric === 'Calls') series = bucketValues(buckets, dCalls, c => c.date, () => 1);
+  else if (metric === 'Appointments') series = bucketValues(buckets, dMeetings, c => c.date, () => 1);
+  else if (metric === 'Revenue') { series = bucketValues(buckets, dClosed, c => c.date, c => dollars(c.jobValue)); seriesMoney = true; }
+  else series = bucketValues(buckets, dFeed, a => a.date, () => 1);
+
   const statsArr = [
-    { label:'Total calls', value: calls.length, coral:false },
-    { label:'Appts booked', value: apptCount, coral:false },
-    { label:'Appt rate', value: calls.length ? `${Math.round(apptCount/calls.length*100)}%` : '0%', coral:true },
-    { label:'Deals closed', value: closedMeetings.length, coral:false },
-    { label:'Potential revenue', value: money(potentialRevenue), coral:false },
-    { label:'Actual revenue', value: money(actualRevenue), coral:true },
-    { label:'Avg confidence', value: avgConf, coral:false },
-    { label:'Interview stories', value: stories.length, coral:false },
-    { label:'Objections handled', value: objectionsHandled, coral:false },
+    { label:'Total calls', value: dCalls.length, coral:false },
+    { label:'Appts booked', value: dMeetings.length, coral:false },
+    { label:'Appt rate', value: dCalls.length ? `${Math.round(dMeetings.length/dCalls.length*100)}%` : '0%', coral:true },
+    { label:'Deals closed', value: dClosed.length, coral:false },
+    { label:'Potential revenue', value: money(dPotential), coral:false },
+    { label:'Actual revenue', value: money(dActual), coral:true },
+    { label:'Avg confidence', value: dAvg, coral:false },
+    { label:'Interview stories', value: dCalls.filter(c => c.isInterviewStory).length, coral:false },
+    { label:'Objections handled', value: dCalls.filter(c => c.objection !== 'None').length, coral:false },
   ];
 
   const TABS: Tab[] = ['dashboard', 'log', ...(apptCount ? ['meetings' as Tab] : []), 'stories'];
@@ -297,6 +345,65 @@ export default function CallsPage() {
       {/* DASHBOARD TAB */}
       {tab === 'dashboard' && (
         <div>
+          {/* Range selector */}
+          <div className="scroll-x" style={{ display:'flex', gap:8, marginBottom:18 }}>
+            {RANGES.map(r => (
+              <button key={r.key} onClick={() => setRange(r.key)}
+                style={{
+                  padding:'7px 14px', borderRadius:999, whiteSpace:'nowrap', cursor:'pointer', fontFamily:'inherit', fontSize:13, fontWeight:700,
+                  border:`1px solid ${range===r.key ? 'var(--fill-dark)' : 'var(--line-2)'}`,
+                  background: range===r.key ? 'var(--fill-dark)' : 'var(--card)',
+                  color: range===r.key ? '#fff' : 'var(--muted)',
+                }}>
+                {r.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Activities — the main daily metric */}
+          <div className="card" style={{ padding:'20px 24px', marginBottom:16 }}>
+            <div className="act-hero" style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:20, flexWrap:'wrap' }}>
+              <div>
+                <div style={{ fontSize:10, fontWeight:700, letterSpacing:'.14em', textTransform:'uppercase', color:'var(--muted)', marginBottom:6 }}>Activities · {RANGES.find(r=>r.key===range)?.label}</div>
+                <div style={{ display:'flex', alignItems:'baseline', gap:12 }}>
+                  <span className="scc-num" style={{ fontWeight:300, fontSize:52, color:'#F5552E', lineHeight:1 }}>{dFeed.length}</span>
+                  <span style={{ fontSize:13, fontWeight:600, color:'var(--muted)' }}>
+                    {countType(dFeed,'Call')} calls · {countType(dFeed,'Message')} messages · {countType(dFeed,'Email')} emails
+                  </span>
+                </div>
+                <div style={{ fontSize:13, fontWeight:600, color:'var(--ink-2b)', marginTop:8 }}>
+                  Today: <span style={{ color:'#F5552E', fontWeight:700 }}>{todayFeed.length}</span>
+                  <span style={{ color:'var(--muted)', fontWeight:500 }}> · {countType(todayFeed,'Call')} calls · {countType(todayFeed,'Message')} msg · {countType(todayFeed,'Email')} email</span>
+                  {activities.length > 0 && <button onClick={undoLastActivity} style={{ marginLeft:10, background:'none', border:'none', color:'var(--muted)', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit', textDecoration:'underline' }}>Undo last</button>}
+                </div>
+              </div>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                {(['Call','Message','Email'] as ActivityType[]).map(t => (
+                  <button key={t} onClick={() => quickAdd(t)}
+                    style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 15px', borderRadius:12, border:'1px solid var(--line-2)', background:'var(--card-2)', color:'var(--ink-2)', fontSize:13.5, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                    + {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Trend chart with metric switcher */}
+          <div className="card" style={{ padding:'20px 22px', marginBottom:16 }}>
+            <div className="scroll-x" style={{ display:'flex', gap:6, marginBottom:18 }}>
+              {(['Activities','Calls','Appointments','Revenue'] as const).map(m => (
+                <button key={m} onClick={() => setMetric(m)}
+                  style={{ padding:'6px 13px', borderRadius:999, whiteSpace:'nowrap', cursor:'pointer', fontFamily:'inherit', fontSize:12.5, fontWeight:700,
+                    border:`1px solid ${metric===m ? 'var(--accent)' : 'var(--line-2)'}`,
+                    background: metric===m ? 'var(--accent-soft)' : 'var(--card)',
+                    color: metric===m ? 'var(--accent-ink)' : 'var(--muted)' }}>
+                  {m}
+                </button>
+              ))}
+            </div>
+            <TrendBars buckets={buckets} values={series} isMoney={seriesMoney} />
+          </div>
+
           <div className="grid-2up" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:18 }}>
             {statsArr.map(s => (
               <div key={s.label} className="card" style={{ padding:'18px 22px' }}>
@@ -306,8 +413,8 @@ export default function CallsPage() {
             ))}
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:18 }}>
-            <BreakdownCard title="Objection breakdown" data={objBreak} total={calls.length} />
-            <BreakdownCard title="Outcome breakdown" data={outBreak} total={calls.length} />
+            <BreakdownCard title="Objection breakdown" data={dObjBreak} total={dCalls.length} />
+            <BreakdownCard title="Outcome breakdown" data={dOutBreak} total={dCalls.length} />
           </div>
 
           {/* Call insights — an AI summary of core growth areas, not a list */}
@@ -402,6 +509,55 @@ function InsightThemes({ title, accent, items }: { title:string; accent:string; 
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// Single-series bar chart of a metric over time buckets. One hue (coral), 2px
+// gaps, 4px rounded data-ends anchored to the baseline, a per-bar hover tooltip,
+// and thinned x-labels — the metric chip above names the series, so no legend.
+function TrendBars({ buckets, values, isMoney }: { buckets: { label:string }[]; values: number[]; isMoney: boolean }) {
+  const [hover, setHover] = useState<number|null>(null);
+  const fmt = (n: number) => isMoney ? `$${Math.round(n).toLocaleString('en-AU')}` : `${n}`;
+  const max = Math.max(1, ...values);
+  const total = values.reduce((a,b) => a+b, 0);
+  const step = Math.max(1, Math.ceil(buckets.length / 9));
+
+  if (!buckets.length || total === 0) {
+    return <div style={{ height:180, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--muted-2)', fontSize:13 }}>No activity in this range yet.</div>;
+  }
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:12 }}>
+        <span style={{ fontSize:11, fontWeight:600, color:'var(--muted-2)' }}>Peak {fmt(max)}</span>
+        <span style={{ fontSize:11, fontWeight:600, color:'var(--muted-2)' }}>{fmt(total)} total</span>
+      </div>
+      <div style={{ position:'relative', display:'flex', alignItems:'flex-end', gap:2, height:180 }}>
+        {buckets.map((b,i) => {
+          const v = values[i] || 0;
+          const h = (v / max) * 100;
+          const active = hover === i;
+          return (
+            <div key={i} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}
+              style={{ flex:1, height:'100%', display:'flex', flexDirection:'column', justifyContent:'flex-end', position:'relative' }}>
+              {active && (
+                <div style={{ position:'absolute', bottom:'calc(100% + 6px)', left:'50%', transform:'translateX(-50%)', background:'var(--fill-dark)', color:'#fff', padding:'5px 9px', borderRadius:8, fontSize:11.5, fontWeight:700, whiteSpace:'nowrap', zIndex:5, boxShadow:'0 6px 16px rgba(0,0,0,.2)' }}>
+                  {b.label} · {fmt(v)}
+                </div>
+              )}
+              <div style={{ height:`${h}%`, minHeight: v>0 ? 3 : 0, background: active ? '#D8431F' : '#F5552E', borderRadius:'4px 4px 2px 2px', transition:'height .3s, background .15s' }} />
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ display:'flex', gap:2, marginTop:8 }}>
+        {buckets.map((b,i) => (
+          <div key={i} style={{ flex:1, textAlign:'center', fontSize:10, fontWeight:600, color:'var(--muted-2)', overflow:'hidden', whiteSpace:'nowrap' }}>
+            {i % step === 0 ? b.label : ''}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

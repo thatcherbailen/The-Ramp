@@ -1,5 +1,5 @@
 'use client';
-import { Task, Job, Call, Story, PrepCard, Objection, Contact, CalendarEvent, Reading, NewsItem, Settings, Goal, OutreachEntry, RoofingWeek, Note, DEFAULT_SETTINGS } from './types';
+import { Task, Job, Call, Story, PrepCard, Objection, Contact, CalendarEvent, Reading, NewsItem, Settings, Goal, OutreachEntry, RoofingWeek, Note, Activity, ActivityType, DEFAULT_SETTINGS } from './types';
 import { DEFAULT_GOAL, SEED_READING } from './seedData';
 import { supabase } from './supabase';
 
@@ -122,6 +122,20 @@ export function saveJob(j: Job) {
   if (idx >= 0) arr[idx] = j; else arr.push(j); save(KEYS.jobs, arr);
 }
 export function deleteJob(id: string) { save(KEYS.jobs, getJobs().filter(x => x.id !== id)); }
+
+// ── Activities (daily volume tally: calls, messages, emails) ──────────
+export function getActivities(): Activity[] { return load('scc_activities', []); }
+export function saveActivity(a: Activity) {
+  const arr = getActivities(); const idx = arr.findIndex(x => x.id === a.id);
+  if (idx >= 0) arr[idx] = a; else arr.push(a); save('scc_activities', arr);
+}
+export function deleteActivity(id: string) { save('scc_activities', getActivities().filter(x => x.id !== id)); }
+// Quick-add one activity dated today; returns the new entry.
+export function logActivity(type: ActivityType, note?: string): Activity {
+  const a: Activity = { id: uid(), date: new Date().toISOString().slice(0, 10), type, note, ts: Date.now() };
+  saveActivity(a);
+  return a;
+}
 
 // ── Calls ──────────────────────────────────────────────────────────
 export function getCalls(): Call[] { return load(KEYS.calls, []); }
