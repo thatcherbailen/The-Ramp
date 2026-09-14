@@ -289,7 +289,7 @@ export default function CallsPage() {
                   </div>
                 </div>
                 {(c.response || c.worked || c.improve) && (
-                  <div style={{ paddingLeft:48, marginTop:9 }}>
+                  <div style={{ paddingLeft:66, marginTop:9 }}>
                     <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:7 }}>
                       {c.objection !== 'None' && (
                         <span style={{ fontSize:11, fontWeight:700, color:'var(--accent-ink)', background:'var(--accent-soft)', padding:'3px 10px', borderRadius:999 }}>

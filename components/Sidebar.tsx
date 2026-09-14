@@ -25,6 +25,7 @@ const NAV: { group: string; items: { href: string; label: string; key?: string }
   ]},
   { group: 'LEARN', items: [
     { href: '/guide', label: 'How to Use' },
+    { href: '/handbook', label: 'Sales Handbook' },
     { href: '/news', label: 'Tech News', key: 'news' },
     { href: '/reading', label: 'Reading List', key: 'reading' },
   ]},
