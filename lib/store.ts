@@ -35,6 +35,10 @@ const KEYS = {
 // made from the same browser (e.g. while testing).
 let cache: Record<string, unknown> | null = null;
 let currentUserId: string | null = null;
+// Demo mode (the public ?demo=1 link): the store is seeded in memory and every
+// save stays in memory only — nothing touches Supabase or any real account.
+let demoMode = false;
+export function isDemo(): boolean { return demoMode; }
 
 export async function initStore(userId: string): Promise<void> {
   const { data, error } = await supabase.from('user_data').select('key,value').eq('user_id', userId);
@@ -47,6 +51,56 @@ export async function initStore(userId: string): Promise<void> {
 export function clearStore(): void {
   cache = null;
   currentUserId = null;
+  demoMode = false;
+}
+
+// Seed a fully-populated, entirely fictional account for the public demo link.
+// Nothing here is a real person or a real customer — it exists only to make the
+// screens look alive for a design walkthrough.
+export function __demoSeed(): void {
+  const ago = (d: number) => { const x = new Date(); x.setDate(x.getDate() - d); return x.toISOString().slice(0, 10); };
+  const ahead = (d: number) => { const x = new Date(); x.setDate(x.getDate() + d); return x.toISOString().slice(0, 10); };
+  cache = {}; currentUserId = 'demo'; demoMode = true;
+
+  const mkCall = (o: Partial<Call>): Call => ({ id: uid(), date: ago(2), lead: '', source: 'Cold call', callNumber: 1, duration: '', outcome: 'Voicemail', confidence: 5, appointmentBooked: false, objection: 'None', tone: 'Neutral', response: '', worked: '', improve: '', isInterviewStory: false, ...o } as Call);
+  cache[KEYS.calls] = [
+    mkCall({ callNumber: 1, date: ago(27), lead: 'Meridian Software — Jordan Blake', phone: '021 555 0102', source: 'Cold call', outcome: 'Follow up', confidence: 5, objection: 'Timing', tone: 'Warm', response: 'Curious but mid-quarter. Walked through their current tooling.', improve: 'Rushed the value before understanding their setup.', followUp: true, followUpStatus: 'active', followUpCount: 1, followUpNextDate: ahead(1) }),
+    mkCall({ callNumber: 2, date: ago(24), lead: 'Harbour Logistics — Priya Nair', phone: '022 555 0148', source: 'Website lead', outcome: 'Appointment booked', confidence: 8, appointmentBooked: true, appointmentDate: ahead(2), jobValue: '$18,000', tone: 'Interested', worked: 'Warm opener, asked good discovery questions before pitching.' }),
+    mkCall({ callNumber: 3, date: ago(21), lead: 'Northwind Retail — Sam Okafor', phone: '027 555 0193', source: 'Referral', outcome: 'Not interested', confidence: 4, objection: 'Competitor', tone: 'Neutral', response: 'Already on a competitor, locked in for a year.', improve: 'Should have asked what they’d change rather than pitching.' }),
+    mkCall({ callNumber: 4, date: ago(18), lead: 'Cedar & Co — Alex Romano', phone: '021 555 0210', source: 'Website lead', outcome: 'Appointment booked', confidence: 7, appointmentBooked: true, appointmentDate: ago(4), jobValue: '$26,500', dealClosed: true, tone: 'Warm', worked: 'Tied the value back to the exact problem they mentioned.', isInterviewStory: true }),
+    mkCall({ callNumber: 5, date: ago(15), lead: 'Lumen Health — Dana Whitfield', phone: '020 555 0177', source: 'Inbound', outcome: 'Follow up', confidence: 6, objection: 'Price', tone: 'Neutral', response: 'Interested but nervous on budget. Framed ROI over cost.', followUp: true, followUpStatus: 'active', followUpCount: 0, followUpNextDate: ahead(0) }),
+    mkCall({ callNumber: 6, date: ago(12), lead: 'Vertex Group — Chris Lund', phone: '021 555 0234', source: 'Cold call', outcome: 'No answer', confidence: 5 }),
+    mkCall({ callNumber: 7, date: ago(10), lead: 'Brightpath Media — Robin Ellis', phone: '022 555 0256', source: 'LinkedIn', outcome: 'Follow up', confidence: 7, tone: 'Warm', response: 'Good rapport, wants to loop in their ops lead.', worked: 'Slowed down and let them talk — much better conversation.', followUp: true, followUpStatus: 'active', followUpCount: 2, followUpNextDate: ahead(4) }),
+    mkCall({ callNumber: 8, date: ago(8), lead: 'Kea Freight — Morgan Yates', phone: '027 555 0281', source: 'Website lead', outcome: 'Voicemail', confidence: 5 }),
+    mkCall({ callNumber: 9, date: ago(5), lead: 'Solace Studios — Tam Rivera', phone: '021 555 0299', source: 'Referral', outcome: 'Appointment booked', confidence: 8, appointmentBooked: true, appointmentDate: ahead(6), jobValue: '$12,000', tone: 'Interested', worked: 'Referral warmth carried it — booked on the first call.' }),
+    mkCall({ callNumber: 10, date: ago(3), lead: 'Anchor Fitness — Lee Carter', phone: '020 555 0312', source: 'Cold call', outcome: 'Not interested', confidence: 4, objection: 'No need', tone: 'Cold', improve: 'Opener was too long — lost them before the reason for the call.' }),
+    mkCall({ callNumber: 11, date: ago(1), lead: 'Tuija Design — Noa Fischer', phone: '022 555 0338', source: 'Website lead', outcome: 'Follow up', confidence: 7, tone: 'Warm', response: 'Requested a quote via the site. Keen but comparing options.', followUp: true, followUpStatus: 'active', followUpCount: 0, followUpNextDate: ahead(1) }),
+  ];
+
+  const acts: Activity[] = [];
+  [0, 0, 1, 2, 3, 4, 6, 8, 9, 11, 13, 16, 20, 24].forEach(d => acts.push({ id: uid(), date: ago(d), type: 'Message', ts: Date.now() - d * 86400000 }));
+  [0, 1, 3, 5, 7, 10, 14, 19].forEach(d => acts.push({ id: uid(), date: ago(d), type: 'Email', ts: Date.now() - d * 86400000 }));
+  cache['scc_activities'] = acts;
+
+  cache[KEYS.jobs] = [
+    { id: uid(), company: 'Datadog', role: 'Account Executive', location: 'Remote', source: 'LinkedIn', status: 'Interview', ote: '$120k', nextStep: 'Prep for panel', contact: 'Sam · recruiter', notes: 'Second round next week.', interviewDate: ahead(5) },
+    { id: uid(), company: 'Xero', role: 'SDR', location: 'Auckland', source: 'Referral', status: 'Final Round', ote: '$85k', nextStep: 'Meet the team', contact: 'Priya · hiring manager', notes: '' },
+    { id: uid(), company: 'Vend', role: 'BDR', location: 'Auckland', source: 'Company site', status: 'Applied', ote: '$78k', nextStep: 'Follow up Friday', contact: '', notes: '' },
+    { id: uid(), company: 'Pushpay', role: 'Account Executive', location: 'Hybrid', source: 'LinkedIn', status: 'Screening', ote: '$110k', nextStep: 'Recruiter call booked', contact: '', notes: '', interviewDate: ahead(2) },
+    { id: uid(), company: 'Tradify', role: 'SDR', location: 'Remote', source: 'Referral', status: 'Offer', ote: '$82k', nextStep: 'Review offer', contact: 'Jordan · VP Sales', notes: 'Verbal offer — deciding.' },
+  ];
+
+  const goal: Goal = {
+    id: 'demo_goal', name: 'Land an AE role in 90 days', description: 'Break into a closing role — practice, pipeline and interviews.', color: '#F5552E', targetDate: ahead(60),
+    phases: [
+      { id: 'demo_p1', name: 'Foundations', description: 'Daily reps, build the story bank', startDate: ago(20), endDate: ago(1) },
+      { id: 'demo_p2', name: 'Pipeline', description: 'Applications and outreach at volume', startDate: ago(0), endDate: ahead(30) },
+      { id: 'demo_p3', name: 'Close', description: 'Interviews and final rounds', startDate: ahead(31), endDate: ahead(60) },
+    ],
+  };
+  cache['scc_goals'] = [goal];
+
+  cache[KEYS.settings] = { userName: 'Alex', targetRole: 'Account Executive', city: 'Auckland', dailyCallGoal: 25, startDate: ago(20) };
 }
 
 function load<T>(key: string, fallback: T): T {
@@ -55,8 +109,9 @@ function load<T>(key: string, fallback: T): T {
 }
 
 function save(key: string, val: unknown) {
-  if (!cache || !currentUserId) return;
-  cache[key] = val;
+  if (!cache) return;
+  cache[key] = val;                       // update the in-memory mirror first
+  if (demoMode || !currentUserId) return; // demo / signed-out: never persist
   supabase.from('user_data').upsert({ user_id: currentUserId, key, value: val }).then(({ error }) => {
     if (error) console.error(`Failed to save "${key}"`, error);
   });

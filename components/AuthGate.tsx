@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getProfile, createProfile } from '@/lib/auth';
-import { getSettings, saveSettings, initStore, clearStore } from '@/lib/store';
+import { getSettings, saveSettings, initStore, clearStore, __demoSeed } from '@/lib/store';
 import AuthScreen from './AuthScreen';
 import Onboarding from './Onboarding';
 
@@ -13,6 +13,22 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
 
   const resolve = useCallback(async () => {
+    // Public demo link (?demo=1): no auth, in-memory sample data only. Remember
+    // it for the tab so navigating and reloads stay in the demo, and never
+    // touch Supabase or a real account.
+    if (typeof window !== 'undefined') {
+      let demo = false;
+      try {
+        if (new URLSearchParams(window.location.search).get('demo') === '1') { sessionStorage.setItem('theramp_demo', '1'); demo = true; }
+        else if (sessionStorage.getItem('theramp_demo') === '1') demo = true;
+      } catch { /* sessionStorage may be blocked */ }
+      if (demo) {
+        __demoSeed();
+        window.dispatchEvent(new Event('scc:profile-updated'));
+        setStage('app');
+        return;
+      }
+    }
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       clearStore();
