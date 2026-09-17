@@ -36,6 +36,7 @@ export default function CallsPage() {
   const [logOpen, setLogOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editCall, setEditCall] = useState<Call|null>(null);
+  const [search, setSearch] = useState('');
   const [insights, setInsights] = useState<CallInsights|null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsError, setInsightsError] = useState('');
@@ -209,6 +210,13 @@ export default function CallsPage() {
     { label:'Objections handled', value: dCalls.filter(c => c.objection !== 'None').length, coral:false },
   ];
 
+  // Call Log search — matches name, phone, email, source, outcome and notes.
+  const q = search.trim().toLowerCase();
+  const shownCalls = q
+    ? calls.filter(c => [c.lead, c.phone, c.email, c.source, c.outcome, c.objection, c.response, c.notes, c.worked, c.improve, String(c.callNumber)]
+        .some(v => (v || '').toString().toLowerCase().includes(q)))
+    : calls;
+
   const TABS: Tab[] = ['dashboard', 'log', ...(apptCount ? ['meetings' as Tab] : []), 'followups', 'stories'];
   const tabLabel = (t: Tab) => t === 'log' ? 'Call Log' : t === 'meetings' ? `Meetings (${apptCount})` : t === 'followups' ? `Follow-ups (${activeFollowUps.length})` : t === 'dashboard' ? 'Dashboard' : 'Stories';
 
@@ -248,20 +256,43 @@ export default function CallsPage() {
           <EmptyState title="No calls logged yet" desc='Hit "Log a call" after every dial — the dashboard fills in automatically.' onAdd={() => setLogOpen(true)} btnLabel="+ Log a call" />
         ) : (
           <>
+          {/* Search */}
+          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:14, flexWrap:'wrap' }}>
+            <div style={{ position:'relative', flex:1, minWidth:220, maxWidth:420 }}>
+              <span style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:'var(--muted-2)', display:'flex' }}><SearchIcon /></span>
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search name, phone, notes, outcome…"
+                style={{ width:'100%', padding:'11px 36px 11px 40px', border:'1px solid var(--line-2)', borderRadius:12, background:'var(--card-2)', color:'var(--ink)', fontFamily:'inherit', fontSize:14, fontWeight:500, outline:'none' }} />
+              {search && (
+                <button onClick={() => setSearch('')} aria-label="Clear search" style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', width:24, height:24, borderRadius:999, border:'none', background:'var(--line-2)', color:'var(--ink-2b)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, lineHeight:1 }}>×</button>
+              )}
+            </div>
+            {q && <span style={{ fontSize:13, fontWeight:600, color:'var(--muted)' }}>{shownCalls.length} of {calls.length}</span>}
+          </div>
+
+          {shownCalls.length === 0 ? (
+            <div className="card" style={{ padding:'40px 30px', textAlign:'center', color:'var(--muted)' }}>
+              <div style={{ fontWeight:700, fontSize:15, color:'var(--ink)', marginBottom:6 }}>No calls match “{search}”</div>
+              <button onClick={() => setSearch('')} style={{ background:'none', border:'none', color:'var(--accent-ink)', fontSize:13.5, fontWeight:700, cursor:'pointer', fontFamily:'inherit', textDecoration:'underline' }}>Clear search</button>
+            </div>
+          ) : (
+          <>
           <div className="card hidden md:block">
             <div style={{ display:'grid', gridTemplateColumns:'52px 1.6fr 150px 58px 116px 60px', gap:14, padding:'13px 22px', background:'var(--card-2)', borderTopLeftRadius:18, borderTopRightRadius:18, fontSize:10, fontWeight:700, letterSpacing:'.1em', textTransform:'uppercase', color:'var(--muted)' }}>
               <div>#</div><div>Lead · source</div><div>Outcome</div><div>Conf</div><div>Appointment</div><div></div>
             </div>
-            {calls.map((c,i) => (
+            {shownCalls.map((c,i) => (
               <div key={c.id}
                 className={`call-row${dragIndex===i?' dragging':''}${overIndex===i && dragIndex!==null && dragIndex!==i?' drag-over':''}`}
                 onDragOver={e => { if (dragIndex!==null) { e.preventDefault(); setOverIndex(i); } }}
-                onDrop={() => handleDrop(i)}
+                onDrop={() => { if (!q) handleDrop(i); }}
                 style={{ padding:'15px 22px', borderTop:'1px solid var(--line-3)' }}>
                 <div style={{ display:'grid', gridTemplateColumns:'52px 1.6fr 150px 58px 116px 60px', gap:14, alignItems:'center' }}>
                   <div
-                    draggable
-                    onDragStart={() => setDragIndex(i)}
+                    draggable={!q}
+                    onDragStart={() => { if (!q) setDragIndex(i); }}
                     onDragEnd={() => { setDragIndex(null); setOverIndex(null); }}
                     title="Drag to reorder"
                     style={{ display:'flex', alignItems:'center', gap:5 }}>
@@ -316,7 +347,7 @@ export default function CallsPage() {
 
           {/* Mobile clean rows */}
           <div className="md:hidden">
-            {calls.map(c => (
+            {shownCalls.map(c => (
               <div key={c.id} onClick={() => setEditCall(c)} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, padding:'15px 0', borderTop:'1px solid var(--line-3)', cursor:'pointer' }}>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontWeight:700, fontSize:16, letterSpacing:'-.01em' }}>{c.lead}</div>
@@ -326,6 +357,8 @@ export default function CallsPage() {
               </div>
             ))}
           </div>
+          </>
+          )}
           </>
         )
       )}
@@ -717,6 +750,15 @@ function PhoneIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
       <path d="M5 3.5h2.2l1.1 3-1.5 1.1a7.5 7.5 0 0 0 3.6 3.6l1.1-1.5 3 1.1v2.2a1.2 1.2 0 0 1-1.3 1.2A11 11 0 0 1 3.8 4.8 1.2 1.2 0 0 1 5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+      <path d="m20 20-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
