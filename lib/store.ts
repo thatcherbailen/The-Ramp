@@ -46,6 +46,12 @@ export async function initStore(userId: string): Promise<void> {
   cache = {};
   (data || []).forEach(row => { cache![row.key] = row.value; });
   currentUserId = userId;
+  // One-time migration: make sure every existing no-answer call has its
+  // follow-up text logged as a Message activity.
+  if (!cache['scc_mig_noanswer_v1']) {
+    backfillNoAnswerMessages();
+    save('scc_mig_noanswer_v1', true);
+  }
 }
 
 export function clearStore(): void {
@@ -101,6 +107,7 @@ export function __demoSeed(): void {
   cache['scc_goals'] = [goal];
 
   cache[KEYS.settings] = { userName: 'Alex', targetRole: 'Account Executive', city: 'Auckland', dailyCallGoal: 25, startDate: ago(20) };
+  backfillNoAnswerMessages();
 }
 
 function load<T>(key: string, fallback: T): T {
@@ -209,6 +216,37 @@ export function logActivity(type: ActivityType, note?: string): Activity {
   const a: Activity = { id: uid(), date: new Date().toISOString().slice(0, 10), type, note, ts: Date.now() };
   saveActivity(a);
   return a;
+}
+
+// A no-answer call means a dial + an immediate follow-up text. The dial is
+// already counted (every logged call is a Call activity), so this just makes
+// sure the text is logged as one Message activity, linked to the call.
+// Idempotent: skips if already linked, and adopts a matching unlinked message
+// (e.g. one created by an earlier import) rather than adding a duplicate.
+export function ensureNoAnswerMessage(call: Call): void {
+  if (call.outcome !== 'No answer') return;
+  const acts = getActivities();
+  if (acts.some(a => a.type === 'Message' && a.callId === call.id)) return;
+  const orphan = acts.find(a => a.type === 'Message' && !a.callId && a.note === `Text after missed call — ${call.lead}`);
+  if (orphan) { orphan.callId = call.id; save('scc_activities', acts); return; }
+  saveActivity({ id: uid(), date: call.date, type: 'Message', note: `Text after missed call — ${call.lead}`, callId: call.id, ts: Date.now() });
+}
+
+// One-time backfill over every existing no-answer call, in a single write.
+export function backfillNoAnswerMessages(): void {
+  const noAns = getCalls().filter(c => c.outcome === 'No answer');
+  if (!noAns.length) return;
+  const acts = getActivities();
+  const linked = new Set(acts.filter(a => a.type === 'Message' && a.callId).map(a => a.callId));
+  let changed = false;
+  for (const c of noAns) {
+    if (linked.has(c.id)) continue;
+    const orphan = acts.find(a => a.type === 'Message' && !a.callId && a.note === `Text after missed call — ${c.lead}`);
+    if (orphan) orphan.callId = c.id;
+    else acts.push({ id: uid(), date: c.date, type: 'Message', note: `Text after missed call — ${c.lead}`, callId: c.id, ts: Date.now() });
+    linked.add(c.id); changed = true;
+  }
+  if (changed) save('scc_activities', acts);
 }
 
 // ── Calls ──────────────────────────────────────────────────────────

@@ -94,6 +94,7 @@ export interface Activity {
   type: ActivityType;
   note?: string;
   ts?: number;       // ms epoch — lets "undo last" find the most recent
+  callId?: string;   // set on the follow-up text logged for a no-answer call
 }
 
 export interface Call {

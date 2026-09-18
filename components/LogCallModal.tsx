@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Modal from './Modal';
-import { saveCall, uid, getCalls, setCallNumber } from '@/lib/store';
+import { saveCall, uid, getCalls, setCallNumber, ensureNoAnswerMessage } from '@/lib/store';
 import { Call } from '@/lib/types';
 
 const SOURCES = ['Cold call', 'Website lead', 'Inbound', 'Referral', 'LinkedIn', 'Email', 'Event', 'Other'];
@@ -56,6 +56,8 @@ export default function LogCallModal({ onClose, initial }: { onClose: () => void
       storyTitle: f.storyTitle,
     };
     saveCall(c);
+    // A no-answer call means a dial + a follow-up text — log that text.
+    ensureNoAnswerMessage(c);
     // If the number was changed on an existing call, slot it into that position
     // and renumber the rest so the sequence stays contiguous.
     const oldNumber = (initial as Call)?.callNumber;

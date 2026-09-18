@@ -99,7 +99,7 @@ export default function ImportCallsModal({ onClose }: { onClose: () => void }) {
     let activities = 0;
     if (attempted) {
       newCalls.forEach(c => {
-        saveActivity({ id: uid(), date: c.date, type: 'Message', note: `Text after missed call — ${c.lead}`, ts: Date.now() } as Activity);
+        saveActivity({ id: uid(), date: c.date, type: 'Message', note: `Text after missed call — ${c.lead}`, callId: c.id, ts: Date.now() } as Activity);
         activities++;
       });
     }
